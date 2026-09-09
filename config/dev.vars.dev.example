@@ -1,0 +1,3 @@
+# Copy to ../.dev.vars.dev only when a later stage introduces a real DEV secret.
+# Store values locally; never commit the copied file.
+# EXAMPLE_SECRET=

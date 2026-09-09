@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "trading-company-hq",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-09",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "env": {
+    "dev": {
+      "name": "trading-company-hq-dev",
+      "vars": { "APP_ENV": "dev", "APP_NAME": "trading-company-hq" }
+    },
+    "prod": {
+      "name": "trading-company-hq-prod",
+      "vars": { "APP_ENV": "prod", "APP_NAME": "trading-company-hq" }
+    }
+  }
+}
