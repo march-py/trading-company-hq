@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Icon, type IconName } from "./components/Icon";
-import { StatusBadge, type StatusTone } from "./components/StatusBadge";
+import { Icon } from "./components/Icon";
+import { StatusBadge } from "./components/StatusBadge";
+import { AppShell, CardShell, PageScaffold, PanelShell, TableShell, type NavGroup } from "./components/layout";
 
 type Health = {
   status: "ok";
@@ -9,10 +10,41 @@ type Health = {
   time: string;
 };
 
-const statusTones: StatusTone[] = ["normal", "active", "success", "warning", "error", "disabled", "unknown"];
-const iconNames: IconName[] = ["activity", "arrow-up", "arrow-down", "layers", "shield", "warning"];
+const navigation: NavGroup[] = [
+  {
+    label: "Headquarters",
+    items: [
+      { id: "lobby", label: "Lobby", stage: "S01", icon: "home", available: true },
+      { id: "market-data", label: "Market data", stage: "S03", icon: "database" },
+    ],
+  },
+  {
+    label: "Decision desks",
+    items: [
+      { id: "research", label: "Research", stage: "S04–S06", icon: "layers" },
+      { id: "trading", label: "Trading", stage: "S07–S10", icon: "chart" },
+      { id: "portfolio", label: "Portfolio", stage: "S11–S13", icon: "briefcase" },
+    ],
+  },
+  {
+    label: "Control room",
+    items: [
+      { id: "risk", label: "Risk & oversight", stage: "S14–S15", icon: "shield" },
+      { id: "automation", label: "Automation", stage: "S16–S17", icon: "activity" },
+      { id: "settings", label: "System settings", stage: "S18", icon: "settings" },
+    ],
+  },
+];
+
+const moduleRunway = [
+  { name: "Market data", stage: "S03", purpose: "Sources and instrument context", icon: "database" as const },
+  { name: "Research", stage: "S04–S06", purpose: "Ideas, evidence, and decision briefs", icon: "layers" as const },
+  { name: "Trading", stage: "S07–S10", purpose: "Orders and execution workflows", icon: "chart" as const },
+  { name: "Portfolio", stage: "S11–S13", purpose: "Positions and performance context", icon: "briefcase" as const },
+];
 
 function App() {
+  const [activeItem, setActiveItem] = useState("lobby");
   const [health, setHealth] = useState<Health | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -33,128 +65,70 @@ function App() {
     return () => controller.abort();
   }, []);
 
-  const healthState = failed ? "error" : health ? "online" : "connecting";
+  const healthTone = failed ? "error" : health ? "success" : "normal";
   const healthLabel = failed ? "SYSTEM CHECK FAILED" : health ? `${health.environment.toUpperCase()} ONLINE` : "CONNECTING";
 
   return (
-    <main className="specimen">
-      <header className="specimen-header">
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">TC</span>
-          <div>
-            <p className="micro-label">TRADING COMPANY</p>
-            <h1>Visual system specimen</h1>
-          </div>
-        </div>
-        <span className={`health health--${healthState}`} aria-live="polite">
-          <span className="health-dot" aria-hidden="true" />
-          {healthLabel}
-        </span>
-      </header>
-
-      <section className="intro" aria-labelledby="specimen-title">
-        <p className="micro-label">S01.1 / CANONICAL DESIGN LANGUAGE</p>
-        <h2 id="specimen-title">Precision<br />without noise.</h2>
-        <p className="intro-copy">
-          A restrained, dark-first system for dense financial decisions: quiet surfaces,
-          explicit states, and numbers designed to be compared at a glance.
-        </p>
-      </section>
-
-      <section className="specimen-grid" aria-label="Visual system samples">
-        <article className="panel panel--type">
-          <div className="panel-heading">
-            <p className="micro-label">01 / TYPOGRAPHY</p>
-            <span className="panel-note">UI + DATA</span>
-          </div>
-          <div className="type-sample">
-            <p className="display-sample">Aa</p>
-            <div>
-              <p className="heading-sample">Signal over spectacle</p>
-              <p className="body-sample">Hierarchy stays legible while the interface remains calm.</p>
-              <p className="data-sample">1,284.32&nbsp;&nbsp;+2.47%</p>
+    <AppShell activeItem={activeItem} navigation={navigation} onNavigate={setActiveItem}>
+      <PageScaffold
+        eyebrow="HQ / LOBBY"
+        title="Good morning."
+        description="A permanent operating frame for the decisions, controls, and systems that will come online as the company grows."
+        status={<StatusBadge tone={healthTone} label={healthLabel} />}
+      >
+        <section className="lobby-summary" aria-label="Headquarters summary">
+          <CardShell eyebrow="OPERATING POSTURE" title="Foundation is ready" detail="S01.2">
+            <p className="card-copy">The visual language and permanent desktop frame are established. Business modules remain intentionally dormant.</p>
+            <div className="signal-line">
+              <StatusBadge tone="success" label="SYSTEM HEALTHY" />
+              <span>Last verified in this session</span>
             </div>
-          </div>
-        </article>
+          </CardShell>
 
-        <article className="panel">
-          <div className="panel-heading">
-            <p className="micro-label">02 / SURFACES</p>
-            <span className="panel-note">DARK FIRST</span>
-          </div>
-          <div className="swatch-row" aria-label="Surface color scale">
-            {["canvas", "surface-1", "surface-2", "surface-3"].map((name) => (
-              <div className={`swatch swatch--${name}`} key={name}>
-                <span>{name.toUpperCase()}</span>
-              </div>
+          <CardShell eyebrow="RELEASE TRACK" title="Interface foundation" detail="2 / 3">
+            <div className="progress-track" aria-label="Interface foundation: two of three chunks complete">
+              <span className="progress-fill" />
+            </div>
+            <div className="milestone-row">
+              <span><Icon name="check" size="sm" /> Visual system</span>
+              <span><Icon name="check" size="sm" /> HQ shell</span>
+              <span className="milestone-muted"><Icon name="circle" size="sm" /> Responsive</span>
+            </div>
+          </CardShell>
+        </section>
+
+        <PanelShell eyebrow="PERMANENT INSERTION POINTS" title="Module runway" detail="S03–S13" className="module-panel">
+          <div className="module-grid">
+            {moduleRunway.map((module) => (
+              <article className="module-card" key={module.name}>
+                <span className="module-icon"><Icon name={module.icon} /></span>
+                <div>
+                  <p className="module-stage">{module.stage}</p>
+                  <h3>{module.name}</h3>
+                  <p>{module.purpose}</p>
+                </div>
+                <span className="reserved-label">RESERVED</span>
+              </article>
             ))}
           </div>
-        </article>
+        </PanelShell>
 
-        <article className="panel panel--wide">
-          <div className="panel-heading">
-            <p className="micro-label">03 / FINANCIAL NUMERICS</p>
-            <span className="panel-note">TABULAR + DIRECTIONAL</span>
+        <TableShell eyebrow="SHARED TABLE SCAFFOLD" title="Build sequence" detail="STRUCTURE ONLY" label="Future module insertion sequence">
+          <div className="shell-table-row shell-table-row--header" role="row">
+            <span role="columnheader">AREA</span><span role="columnheader">STAGE</span><span role="columnheader">INSERTION POINT</span><span role="columnheader">STATE</span>
           </div>
-          <div className="market-table" role="table" aria-label="Financial number styles">
-            <div className="market-row market-row--header" role="row">
-              <span role="columnheader">INSTRUMENT</span><span role="columnheader">LAST</span><span role="columnheader">CHANGE</span><span role="columnheader">EXPOSURE</span>
-            </div>
-            <div className="market-row" role="row">
-              <strong role="cell">SPX</strong><span role="cell">5,621.44</span><span className="number-positive" role="cell">+0.82%</span><span role="cell">$2.40M</span>
-            </div>
-            <div className="market-row" role="row">
-              <strong role="cell">EURUSD</strong><span role="cell">1.1048</span><span className="number-negative" role="cell">−0.31%</span><span role="cell">$860K</span>
-            </div>
-            <div className="market-row" role="row">
-              <strong role="cell">UST 10Y</strong><span role="cell">3.676%</span><span className="number-neutral" role="cell">0.00%</span><span role="cell">$1.18M</span>
-            </div>
+          <div className="shell-table-row" role="row">
+            <strong role="cell">Data foundation</strong><span role="cell">S02–S03</span><span role="cell">Market data</span><span role="cell"><StatusBadge tone="normal" label="PLANNED" /></span>
           </div>
-        </article>
-
-        <article className="panel panel--wide">
-          <div className="panel-heading">
-            <p className="micro-label">04 / STATUS LANGUAGE</p>
-            <span className="panel-note">COLOR + ICON + LABEL</span>
+          <div className="shell-table-row" role="row">
+            <strong role="cell">Decision workflow</strong><span role="cell">S04–S10</span><span role="cell">Research + Trading</span><span role="cell"><StatusBadge tone="normal" label="PLANNED" /></span>
           </div>
-          <div className="status-list">
-            {statusTones.map((tone) => <StatusBadge key={tone} tone={tone} />)}
+          <div className="shell-table-row" role="row">
+            <strong role="cell">Oversight</strong><span role="cell">S11–S18</span><span role="cell">Portfolio + Control room</span><span role="cell"><StatusBadge tone="normal" label="PLANNED" /></span>
           </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading">
-            <p className="micro-label">05 / ICON DIRECTION</p>
-            <span className="panel-note">1.6 PX STROKE</span>
-          </div>
-          <div className="icon-list">
-            {iconNames.map((name) => (
-              <span className="icon-sample" key={name} title={name}>
-                <Icon name={name} size="lg" label={name} />
-              </span>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading">
-            <p className="micro-label">06 / CONTROL STATES</p>
-            <span className="panel-note">VISIBLE FOCUS</span>
-          </div>
-          <div className="control-list">
-            <button className="button button--primary" type="button">Review signal</button>
-            <button className="button button--secondary" type="button">Dismiss</button>
-            <button className="button" type="button" disabled>Unavailable</button>
-          </div>
-          <p className="accessibility-note">Keyboard focus uses a persistent high-contrast ring. Status never relies on color alone.</p>
-        </article>
-      </section>
-
-      <footer className="specimen-footer">
-        <span>S01.1 / VISUAL SYSTEM</span>
-        <span>8 PT RHYTHM · 10–14 PX RADII · 40 PX CONTROLS</span>
-      </footer>
-    </main>
+        </TableShell>
+      </PageScaffold>
+    </AppShell>
   );
 }
 
