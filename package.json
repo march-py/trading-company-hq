@@ -12,6 +12,7 @@
   "scripts": {
     "check:foundation": "node scripts/check-foundation.mjs",
     "check:visual-system": "node scripts/check-visual-system.mjs",
+    "check:palette": "node scripts/check-palette.mjs",
     "check:hq-shell": "node scripts/check-hq-shell.mjs",
     "dev": "CLOUDFLARE_ENV=dev vite --host 127.0.0.1",
     "build": "npm run build:dev",
