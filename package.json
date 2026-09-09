@@ -17,10 +17,11 @@
     "build:prod": "CLOUDFLARE_ENV=prod vite build",
     "preview": "CLOUDFLARE_ENV=dev vite preview --host 127.0.0.1",
     "cf-typegen": "wrangler types --env dev && node scripts/normalize-generated-types.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
     "typecheck": "tsc",
     "lint": "eslint .",
     "test": "npm run check:foundation && vitest run",
-    "check": "npm run cf-typegen && npm run typecheck && npm run lint && npm test && npm run build:dev && npm run build:prod"
+    "check": "npm run cf-typegen && npm run check:secrets && npm run typecheck && npm run lint && npm test && npm run build:dev && npm run build:prod"
   },
   "dependencies": {
     "react": "^19.2.0",
