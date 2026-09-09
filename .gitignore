@@ -3,7 +3,7 @@ dist/
 .wrangler/
 .dev.vars*
 .env*
-!.env.example
+!config/*.example
 coverage/
 *.log
 *.tsbuildinfo

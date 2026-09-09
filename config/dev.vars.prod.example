@@ -1,0 +1,3 @@
+# Reference only. Production secret values belong in Cloudflare secret storage.
+# Never use this file to store or deploy a production value.
+# EXAMPLE_SECRET=
