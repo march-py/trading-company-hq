@@ -12,6 +12,7 @@
   "scripts": {
     "check:foundation": "node scripts/check-foundation.mjs",
     "check:visual-system": "node scripts/check-visual-system.mjs",
+    "check:hq-shell": "node scripts/check-hq-shell.mjs",
     "dev": "CLOUDFLARE_ENV=dev vite --host 127.0.0.1",
     "build": "npm run build:dev",
     "build:dev": "CLOUDFLARE_ENV=dev vite build",
@@ -23,7 +24,7 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "typecheck": "tsc",
     "lint": "eslint .",
-    "test": "npm run check:foundation && npm run check:visual-system && vitest run",
+    "test": "npm run check:foundation && npm run check:visual-system && npm run check:hq-shell && vitest run",
     "check": "npm run cf-typegen && npm run check:secrets && npm run typecheck && npm run lint && npm test && npm run build:dev && npm run build:prod"
   },
   "dependencies": {

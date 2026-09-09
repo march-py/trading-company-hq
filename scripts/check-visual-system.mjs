@@ -35,9 +35,9 @@ for (const tone of ["normal", "active", "success", "warning", "error", "disabled
   }
 }
 
-for (const marker of ["FINANCIAL NUMERICS", "STATUS LANGUAGE", "ICON DIRECTION", "VISIBLE FOCUS", "tabular-nums"]) {
-  if (!files.app.includes(marker) && !Object.values(files).some((contents) => contents.includes(marker))) {
-    throw new Error(`Missing specimen marker: ${marker}`);
+for (const marker of ["tabular-nums", "status-badge", "strokeWidth=\"1.6\"", "focus-visible"]) {
+  if (!Object.values(files).some((contents) => contents.includes(marker))) {
+    throw new Error(`Missing visual-system behavior: ${marker}`);
   }
 }
 
