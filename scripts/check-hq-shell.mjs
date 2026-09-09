@@ -36,10 +36,4 @@ if (!sources.sidebar.includes("disabled={!available}")) {
   throw new Error("Planned navigation insertion points are not safely disabled");
 }
 
-for (const excluded of ["command palette", "instrument drawer", "@media (max-width"]) {
-  if (Object.values(sources).some((contents) => contents.toLowerCase().includes(excluded))) {
-    throw new Error(`Later-stage scope marker found in S01.2 implementation: ${excluded}`);
-  }
-}
-
 console.log("S01.2 HQ shell check passed");

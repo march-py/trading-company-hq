@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Icon } from "./components/Icon";
 import { StatusBadge } from "./components/StatusBadge";
 import { AppShell, CardShell, PageScaffold, PanelShell, TableShell, type NavGroup } from "./components/layout";
+import { CommandPalette, InstrumentDrawer } from "./components/overlays";
+import { StatePanel } from "./components/states";
 
 type Health = {
   status: "ok";
@@ -47,6 +49,8 @@ function App() {
   const [activeItem, setActiveItem] = useState("lobby");
   const [health, setHealth] = useState<Health | null>(null);
   const [failed, setFailed] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +69,22 @@ function App() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+      if (event.key === "Escape") {
+        setPaletteOpen(false);
+        setDrawerOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const healthTone = failed ? "error" : health ? "success" : "normal";
   const healthLabel = failed ? "SYSTEM CHECK FAILED" : health ? `${health.environment.toUpperCase()} ONLINE` : "CONNECTING";
 
@@ -75,6 +95,12 @@ function App() {
         title="Good morning."
         description="A permanent operating frame for the decisions, controls, and systems that will come online as the company grows."
         status={<StatusBadge tone={healthTone} label={healthLabel} />}
+        actions={
+          <div className="header-actions">
+            <button className="button button--quiet" type="button" onClick={() => setPaletteOpen(true)}><Icon name="search" /><span>Commands</span><kbd>⌘ K</kbd></button>
+            <button className="icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="Open instrument drawer"><Icon name="panel-right" /></button>
+          </div>
+        }
       >
         <section className="lobby-summary" aria-label="Headquarters summary">
           <CardShell eyebrow="OPERATING POSTURE" title="Foundation is ready" detail="S01.2">
@@ -127,7 +153,17 @@ function App() {
             <strong role="cell">Oversight</strong><span role="cell">S11–S18</span><span role="cell">Portfolio + Control room</span><span role="cell"><StatusBadge tone="normal" label="PLANNED" /></span>
           </div>
         </TableShell>
+
+        <PanelShell eyebrow="REUSABLE APPLICATION STATES" title="State foundation" detail="S01.3" className="state-foundation">
+          <div className="state-grid">
+            <StatePanel kind="loading" title="Loading context" message="Preserves layout while a bounded request is in flight." />
+            <StatePanel kind="error" title="Context unavailable" message="Explains the failure and keeps recovery close." action={<button className="text-button" type="button">Try again</button>} />
+            <StatePanel kind="empty" title="Nothing here yet" message="Names what belongs here and how to begin." action={<button className="text-button" type="button">View guidance</button>} />
+          </div>
+        </PanelShell>
       </PageScaffold>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpenDrawer={() => setDrawerOpen(true)} />
+      <InstrumentDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </AppShell>
   );
 }
