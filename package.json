@@ -15,6 +15,8 @@
     "build": "npm run build:dev",
     "build:dev": "CLOUDFLARE_ENV=dev vite build",
     "build:prod": "CLOUDFLARE_ENV=prod vite build",
+    "deploy:dev:dry-run": "npm run build:dev && wrangler deploy --env dev --dry-run",
+    "deploy:dev": "npm run build:dev && wrangler deploy --env dev",
     "preview": "CLOUDFLARE_ENV=dev vite preview --host 127.0.0.1",
     "cf-typegen": "wrangler types --env dev && node scripts/normalize-generated-types.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
