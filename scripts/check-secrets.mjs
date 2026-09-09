@@ -33,4 +33,4 @@ if (findings.length > 0) {
   throw new Error(`Potential credential material found:\n${findings.join("\n")}`);
 }
 
-console.log(`Secret scan passed for ${paths.length} tracked files.`);
+console.log(`Secret scan passed for ${paths.length} tracked and untracked files.`);
