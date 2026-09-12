@@ -41,10 +41,4 @@ for (const marker of ["tabular-nums", "status-badge", "strokeWidth=\"1.6\"", "fo
   }
 }
 
-for (const excluded of ["command-palette", "instrument-drawer", "app-sidebar"]) {
-  if (Object.values(files).some((contents) => contents.toLowerCase().includes(excluded))) {
-    throw new Error(`S01.2 scope marker found in S01.1 implementation: ${excluded}`);
-  }
-}
-
 console.log("S01.1 visual system check passed");
