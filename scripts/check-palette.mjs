@@ -5,20 +5,24 @@ const tokens = await readFile(new URL("src/design-tokens.css", root), "utf8");
 const styles = await readFile(new URL("src/styles.css", root), "utf8");
 
 const required = {
-  "--color-canvas": "#f4f0e6",
-  "--color-canvas-raised": "#eae4d4",
-  "--color-surface-3": "#d9d3af",
-  "--color-text-primary": "#283126",
-  "--color-accent": "#f47c20",
-  "--color-accent-soft": "#e99a4a",
-  "--color-focus": "#b94707",
+  "--color-canvas": "#f7f6f1",
+  "--color-canvas-raised": "#eeece3",
+  "--color-surface-3": "#dce3d8",
+  "--color-sage": "#a9b7a2",
+  "--color-sage-deep": "#7e927c",
+  "--color-sea-glass": "#afc7c8",
+  "--color-text-primary": "#2e3834",
+  "--color-accent": "#e9a66b",
+  "--color-accent-soft": "#f0d1b5",
+  "--color-terracotta": "#d98555",
+  "--color-focus": "#a84d28",
 };
 
 for (const [name, value] of Object.entries(required)) {
   if (!tokens.includes(`${name}: ${value}`)) throw new Error(`Missing palette token ${name}: ${value}`);
 }
 
-if (!tokens.includes("color-scheme: light")) throw new Error("Warm light color scheme is not active");
+if (!tokens.includes("color-scheme: light")) throw new Error("Calm light color scheme is not active");
 if (!styles.includes("radial-gradient") || !styles.includes("linear-gradient")) throw new Error("Organic blended background is missing");
 
 function luminance(hex) {
@@ -33,12 +37,12 @@ function contrast(foreground, background) {
 }
 
 const checks = [
-  ["primary on ivory", "#283126", "#f4f0e6", 4.5],
-  ["secondary on ivory", "#3b4636", "#f4f0e6", 4.5],
-  ["accent text on ivory", "#a9420a", "#f4f0e6", 4.5],
-  ["focus on ivory", "#b94707", "#f4f0e6", 4.5],
-  ["ink on vivid orange", "#283126", "#f47c20", 4.5],
-  ["strong orange structure on ivory", "#d45d13", "#f4f0e6", 3],
+  ["primary on porcelain", "#2e3834", "#f7f6f1", 4.5],
+  ["secondary on porcelain", "#46534f", "#f7f6f1", 4.5],
+  ["accent text on porcelain", "#9f4c28", "#f7f6f1", 4.5],
+  ["focus on porcelain", "#a84d28", "#f7f6f1", 4.5],
+  ["ink on muted apricot", "#2e3834", "#e9a66b", 4.5],
+  ["deep sage structure on porcelain", "#71866f", "#f7f6f1", 3],
 ];
 
 for (const [label, foreground, background, minimum] of checks) {
@@ -47,4 +51,4 @@ for (const [label, foreground, background, minimum] of checks) {
   console.log(`${label}: ${ratio.toFixed(2)}:1`);
 }
 
-console.log("S01 warm palette check passed");
+console.log("S01 calm palette check passed");

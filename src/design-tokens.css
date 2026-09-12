@@ -20,24 +20,28 @@
   --tracking-tight: -0.035em;
   --tracking-label: 0.12em;
 
-  --color-canvas: #f4f0e6;
-  --color-canvas-raised: #eae4d4;
-  --color-surface-1: #faf7ef;
-  --color-surface-2: #eee8d7;
-  --color-surface-3: #d9d3af;
-  --color-border-subtle: rgb(185 78 12 / 22%);
-  --color-border-strong: #d45d13;
+  --color-canvas: #f7f6f1;
+  --color-canvas-raised: #eeece3;
+  --color-surface-1: #fcfbf8;
+  --color-surface-2: #f0efe8;
+  --color-surface-3: #dce3d8;
+  --color-sage: #a9b7a2;
+  --color-sage-deep: #7e927c;
+  --color-sea-glass: #afc7c8;
+  --color-border-subtle: rgb(95 107 103 / 18%);
+  --color-border-strong: #71866f;
 
-  --color-text-primary: #283126;
-  --color-text-secondary: #3b4636;
-  --color-text-tertiary: #5f6853;
-  --color-text-disabled: #7d806b;
+  --color-text-primary: #2e3834;
+  --color-text-secondary: #46534f;
+  --color-text-tertiary: #5f6b67;
+  --color-text-disabled: #7b8581;
 
-  --color-accent: #f47c20;
-  --color-accent-soft: #e99a4a;
-  --color-accent-strong: #a9420a;
-  --color-focus: #b94707;
-  --color-focus-ring: rgb(244 124 32 / 32%);
+  --color-accent: #e9a66b;
+  --color-accent-soft: #f0d1b5;
+  --color-terracotta: #d98555;
+  --color-accent-strong: #9f4c28;
+  --color-focus: #a84d28;
+  --color-focus-ring: rgb(217 133 85 / 30%);
 
   --color-positive: #267552;
   --color-negative: #b4373f;
@@ -45,14 +49,14 @@
   --color-success: #267552;
   --color-warning: #8b5a00;
   --color-error: #a72d36;
-  --color-info: #416779;
+  --color-info: #4f7074;
 
-  --state-normal-fg: #4f5a48;
-  --state-normal-bg: rgb(79 90 72 / 8%);
-  --state-normal-border: rgb(79 90 72 / 30%);
-  --state-active-fg: #934009;
-  --state-active-bg: rgb(244 124 32 / 13%);
-  --state-active-border: rgb(185 71 7 / 44%);
+  --state-normal-fg: #52615c;
+  --state-normal-bg: rgb(126 146 124 / 9%);
+  --state-normal-border: rgb(95 107 103 / 26%);
+  --state-active-fg: #8f4527;
+  --state-active-bg: rgb(233 166 107 / 18%);
+  --state-active-border: rgb(168 77 40 / 40%);
   --state-success-fg: #1f6545;
   --state-success-bg: rgb(38 117 82 / 10%);
   --state-success-border: rgb(38 117 82 / 34%);
@@ -62,12 +66,12 @@
   --state-error-fg: #972a33;
   --state-error-bg: rgb(167 45 54 / 9%);
   --state-error-border: rgb(167 45 54 / 32%);
-  --state-disabled-fg: #777b69;
-  --state-disabled-bg: rgb(125 128 107 / 8%);
-  --state-disabled-border: rgb(125 128 107 / 24%);
-  --state-unknown-fg: #596b75;
-  --state-unknown-bg: rgb(65 103 121 / 9%);
-  --state-unknown-border: rgb(65 103 121 / 30%);
+  --state-disabled-fg: #7b8581;
+  --state-disabled-bg: rgb(123 133 129 / 7%);
+  --state-disabled-border: rgb(123 133 129 / 22%);
+  --state-unknown-fg: #4f7074;
+  --state-unknown-bg: rgb(175 199 200 / 20%);
+  --state-unknown-border: rgb(79 112 116 / 30%);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -86,7 +90,7 @@
   --radius-pill: 999px;
 
   --border-thin: 1px;
-  --shadow-panel: 0 18px 48px rgb(70 61 35 / 10%);
+  --shadow-panel: 0 18px 48px rgb(59 74 67 / 8%);
   --shadow-focus: 0 0 0 3px var(--color-focus-ring);
 
   --control-sm: 2rem;
