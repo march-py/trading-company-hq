@@ -1,0 +1,6 @@
+-- S02.2 deliberately contains no production-domain seed data.
+--
+-- Assets, instruments, venues, aliases, sources, and provenance records must
+-- enter the system through later validated ingestion or administrative flows.
+-- Do not add arbitrary market identities, provider records, accounts,
+-- strategies, or credentials here.
