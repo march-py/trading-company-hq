@@ -1,3 +1,5 @@
-# Copy to ../.dev.vars.dev only when a later stage introduces a real DEV secret.
+# Copy to ../.dev.vars.dev when configuring the S03.1 Worker locally.
 # Store values locally; never commit the copied file.
-# EXAMPLE_SECRET=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+EVENT_INGRESS_TOKEN=

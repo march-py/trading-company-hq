@@ -16,6 +16,7 @@
     "check:hq-shell": "node scripts/check-hq-shell.mjs",
     "check:interaction-foundation": "node scripts/check-interaction-foundation.mjs",
     "check:supabase-schema": "node scripts/check-supabase-schema.mjs",
+    "check:event-ingress": "node scripts/check-event-ingress.mjs",
     "export:data-core:dev": "APP_ENV=dev node scripts/export-s02-data-core.mjs",
     "dev": "CLOUDFLARE_ENV=dev vite --host 127.0.0.1",
     "build": "npm run build:dev",
@@ -28,7 +29,7 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "typecheck": "tsc",
     "lint": "eslint .",
-    "test": "npm run check:foundation && npm run check:visual-system && npm run check:palette && npm run check:hq-shell && npm run check:interaction-foundation && npm run check:supabase-schema && vitest run",
+    "test": "npm run check:foundation && npm run check:visual-system && npm run check:palette && npm run check:hq-shell && npm run check:interaction-foundation && npm run check:supabase-schema && npm run check:event-ingress && vitest run",
     "check": "npm run cf-typegen && npm run check:secrets && npm run typecheck && npm run lint && npm test && npm run build:dev && npm run build:prod"
   },
   "dependencies": {
