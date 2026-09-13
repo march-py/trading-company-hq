@@ -1,5 +1,5 @@
 create table public.event_ledger (
-  id uuid primary key,
+  id uuid primary key default gen_random_uuid(),
   environment text not null,
   contract_version integer not null,
   event_type text not null,
@@ -39,7 +39,10 @@ create table public.event_ledger (
   constraint event_ledger_request_body_sha256_check check (
     request_body_sha256 ~ '^[0-9a-f]{64}$'
   ),
-  constraint event_ledger_payload_object_check check (jsonb_typeof(payload) = 'object')
+  constraint event_ledger_payload_object_check check (jsonb_typeof(payload) = 'object'),
+  constraint event_ledger_payload_size_check check (
+    pg_column_size(payload) <= 262144
+  )
 );
 
 create index event_ledger_ingested_at_idx

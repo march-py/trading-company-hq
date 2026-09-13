@@ -18,12 +18,14 @@ for (const column of [
 
 for (const contract of [
   /create\s+table\s+public\.event_ledger/i,
+  /id\s+uuid\s+primary\s+key\s+default\s+gen_random_uuid\(\)/i,
   /alter\s+table\s+public\.event_ledger\s+enable\s+row\s+level\s+security/i,
   /before\s+update\s+or\s+delete\s+on\s+public\.event_ledger/i,
   /before\s+truncate\s+on\s+public\.event_ledger/i,
   /grant\s+select\s*,\s*insert\s+on\s+table\s+public\.event_ledger\s+to\s+service_role/i,
   /revoke\s+update\s*,\s*delete\s*,\s*truncate\s+on\s+table\s+public\.event_ledger\s+from\s+service_role/i,
   /request_body_sha256\s*~\s*'\^\[0-9a-f\]\{64\}\$'/i,
+  /event_ledger_payload_size_check\s+check\s*\(\s*pg_column_size\(payload\)\s*<=\s*262144\s*\)/i,
 ]) requireMatch(migration, contract, `Missing event ledger database contract: ${contract.source}`);
 
 if (/\bupdated_at\b/i.test(migration)) throw new Error("event_ledger must not have updated_at");
