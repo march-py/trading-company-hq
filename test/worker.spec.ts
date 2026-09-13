@@ -18,4 +18,11 @@ describe("Worker API", () => {
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "not_found" });
   });
+
+  it("does not treat other methods on the ingest path as ingestion", async () => {
+    const response = await SELF.fetch("https://example.com/api/events/ingest");
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "not_found" });
+  });
 });
