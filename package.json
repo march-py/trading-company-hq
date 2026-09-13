@@ -16,6 +16,7 @@
     "check:hq-shell": "node scripts/check-hq-shell.mjs",
     "check:interaction-foundation": "node scripts/check-interaction-foundation.mjs",
     "check:supabase-schema": "node scripts/check-supabase-schema.mjs",
+    "export:data-core:dev": "APP_ENV=dev node scripts/export-s02-data-core.mjs",
     "dev": "CLOUDFLARE_ENV=dev vite --host 127.0.0.1",
     "build": "npm run build:dev",
     "build:dev": "CLOUDFLARE_ENV=dev vite build",
