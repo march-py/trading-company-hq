@@ -1,10 +1,14 @@
 import type { EventEnvelopeV1 } from "./event-envelope";
 
-export interface RuntimeEnv extends Env {
-  SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
-  EVENT_INGRESS_TOKEN: string;
-}
+export type AppEnvironment = "dev" | "prod";
+
+export type RuntimeEnv =
+  Omit<Env, "APP_ENV"> & {
+    APP_ENV: AppEnvironment;
+    SUPABASE_URL: string;
+    SUPABASE_SERVICE_ROLE_KEY: string;
+    EVENT_INGRESS_TOKEN: string;
+  };
 
 export interface EventLedgerInsert extends Omit<EventEnvelopeV1, "correlation_id"> {
   id: string;

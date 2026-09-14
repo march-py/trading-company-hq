@@ -11,11 +11,55 @@
   "env": {
     "dev": {
       "name": "trading-company-hq-dev",
-      "vars": { "APP_ENV": "dev", "APP_NAME": "trading-company-hq" }
+      "vars": {
+        "APP_ENV": "dev",
+        "APP_NAME": "trading-company-hq"
+      },
+      "queues": {
+        "producers": [
+          {
+            "binding": "EVENT_QUEUE",
+            "queue": "trading-company-events-dev"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "trading-company-events-dev",
+            "max_retries": 3,
+            "dead_letter_queue": "trading-company-events-dlq-dev",
+            "retry_delay": 30
+          },
+          {
+            "queue": "trading-company-events-dlq-dev"
+          }
+        ]
+      }
     },
     "prod": {
       "name": "trading-company-hq-prod",
-      "vars": { "APP_ENV": "prod", "APP_NAME": "trading-company-hq" }
+      "vars": {
+        "APP_ENV": "prod",
+        "APP_NAME": "trading-company-hq"
+      },
+      "queues": {
+        "producers": [
+          {
+            "binding": "EVENT_QUEUE",
+            "queue": "trading-company-events-prod"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "trading-company-events-prod",
+            "max_retries": 3,
+            "dead_letter_queue": "trading-company-events-dlq-prod",
+            "retry_delay": 30
+          },
+          {
+            "queue": "trading-company-events-dlq-prod"
+          }
+        ]
+      }
     }
   }
 }
