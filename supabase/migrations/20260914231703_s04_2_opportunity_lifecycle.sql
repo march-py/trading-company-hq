@@ -14,6 +14,7 @@ create table public.opportunities (
   triggered_at timestamptz not null,
   direction text,
   setup_key text,
+  tradingview_deep_link text not null,
 
   detected_at timestamptz not null default now(),
   qualified_at timestamptz,
@@ -67,6 +68,12 @@ create table public.opportunities (
     check (
       setup_key is null
       or length(setup_key) between 1 and 128
+    ),
+
+  constraint opportunities_tradingview_deep_link_check
+    check (
+      length(tradingview_deep_link) between 1 and 2048
+      and tradingview_deep_link like 'https://www.tradingview.com/%'
     ),
 
   constraint opportunities_lifecycle_time_check

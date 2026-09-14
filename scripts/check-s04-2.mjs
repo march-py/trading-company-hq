@@ -69,6 +69,11 @@ requireMatch(
   "opportunity dedupe protection missing",
 );
 
+requireMatch(
+  /tradingview_deep_link/,
+  "TradingView deep-link support missing",
+);
+
 for (const state of [
   "detected",
   "qualified",
