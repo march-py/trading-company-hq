@@ -14,6 +14,14 @@ import {
   handleDeadLetterBatch,
 } from "./dead-letter";
 
+import {
+  handleScheduledEvent,
+} from "./scheduled-runner";
+
+import {
+  readAutomationHealth,
+} from "./automation-health";
+
 const handleEventIngress =
   createEventIngressHandler();
 
@@ -59,6 +67,27 @@ export default {
             new Date()
               .toISOString(),
         },
+        {
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        },
+      );
+    }
+
+    if (
+      request.method === "GET"
+      && url.pathname
+        === "/api/health/automation"
+    ) {
+      const health =
+        await readAutomationHealth(
+          env,
+        );
+
+      return Response.json(
+        health,
         {
           headers: {
             "cache-control":
@@ -135,5 +164,20 @@ export default {
         delaySeconds: 30,
       });
     }
+  },
+
+  async scheduled(
+    controller,
+    env,
+  ): Promise<void> {
+    await handleScheduledEvent(
+      {
+        cron:
+          controller.cron,
+        scheduledTime:
+          controller.scheduledTime,
+      },
+      env,
+    );
   },
 } satisfies ExportedHandler<RuntimeEnv>;
