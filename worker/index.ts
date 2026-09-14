@@ -22,8 +22,19 @@ import {
   readAutomationHealth,
 } from "./automation-health";
 
+import {
+  createTradingViewWebhookHandler,
+} from "./tradingview-webhook";
+
+import {
+  isTradingViewWebhookRouteCandidate,
+} from "./tradingview-auth";
+
 const handleEventIngress =
   createEventIngressHandler();
+
+const handleTradingViewWebhook =
+  createTradingViewWebhookHandler();
 
 function mainQueueName(
   environment:
@@ -94,6 +105,17 @@ export default {
               "no-store",
           },
         },
+      );
+    }
+
+    if (
+      isTradingViewWebhookRouteCandidate(
+        url.pathname,
+      )
+    ) {
+      return handleTradingViewWebhook(
+        request,
+        env,
       );
     }
 
