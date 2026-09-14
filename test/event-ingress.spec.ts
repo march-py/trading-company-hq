@@ -1,168 +1,681 @@
-import { describe, expect, it, vi } from "vitest";
-import { createEventIngressHandler } from "../worker/event-ingress";
-import { persistEvent, type EventLedgerInsert, type PersistEvent, type RuntimeEnv } from "../worker/event-persistence";
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
+import {
+  createEventIngressHandler,
+  type PersistIdempotentEvent,
+} from "../worker/event-ingress";
+
+import {
+  hashIdempotencyKey,
+} from "../worker/idempotency";
+
+import type {
+  IdempotentEventInsert,
+} from "../worker/event-store";
+
+import type {
+  RuntimeEnv,
+} from "../worker/event-persistence";
 
 const env = {
   APP_ENV: "dev",
   APP_NAME: "trading-company-hq",
-  SUPABASE_URL: "https://example.supabase.co",
-  SUPABASE_SERVICE_ROLE_KEY: "test-key",
-  EVENT_INGRESS_TOKEN: "test-token",
+  SUPABASE_URL:
+    "https://example.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY:
+    "test-key",
+  EVENT_INGRESS_TOKEN:
+    "test-token",
+  EVENT_QUEUE: {
+    async send() {},
+  },
 } as RuntimeEnv;
 
 const validEnvelope = {
   contract_version: 1,
   event_type: "market.quote",
   event_version: 1,
-  payload: { symbol: "TEST", price: 42 },
+  payload: {
+    symbol: "TEST",
+    price: 42,
+  },
 };
 
-function request(body: string, headers: Record<string, string> = {}): Request {
-  return new Request("https://example.com/api/events/ingest", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${env.EVENT_INGRESS_TOKEN}`,
-      "content-type": "application/json",
-      ...headers,
-    },
-    body,
-  });
+interface RequestOptions {
+  headers?: Record<string, string>;
+  idempotencyKey?: string | null;
 }
 
-function capturingPersistence(result = true) {
-  let captured: EventLedgerInsert | undefined;
-  const persist: PersistEvent = async (event) => {
-    captured = event;
-    return result;
+function request(
+  body: string,
+  options: RequestOptions = {},
+): Request {
+  const headers: Record<string, string> = {
+    authorization:
+      `Bearer ${env.EVENT_INGRESS_TOKEN}`,
+    "content-type": "application/json",
+    ...options.headers,
   };
-  return { persist, get captured() { return captured; } };
+
+  const idempotencyKey =
+    options.idempotencyKey === undefined
+      ? "test-idempotency-key"
+      : options.idempotencyKey;
+
+  if (idempotencyKey !== null) {
+    headers["idempotency-key"] =
+      idempotencyKey;
+  }
+
+  return new Request(
+    "https://example.com/api/events/ingest",
+    {
+      method: "POST",
+      headers,
+      body,
+    },
+  );
 }
 
-describe("POST /api/events/ingest", () => {
-  it("rejects missing or incorrect bearer authorization before persistence", async () => {
-    const persist = vi.fn<PersistEvent>();
-    const handler = createEventIngressHandler(persist);
-    const response = await handler(request(JSON.stringify(validEnvelope), { authorization: "Bearer incorrect" }), env);
+function capturingStore() {
+  let captured:
+    IdempotentEventInsert
+    | undefined;
 
-    expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: "unauthorized" });
-    expect(persist).not.toHaveBeenCalled();
-  });
+  const persist:
+    PersistIdempotentEvent =
+    async (event) => {
+      captured = event;
 
-  it("requires a JSON media type", async () => {
-    const persist = vi.fn<PersistEvent>();
-    const response = await createEventIngressHandler(persist)(request("{}", { "content-type": "text/plain" }), env);
+      return {
+        status: "created",
+        event_id: event.id,
+        request_id: event.request_id,
+      };
+    };
 
-    expect(response.status).toBe(415);
-    expect(await response.json()).toEqual({ error: "unsupported_media_type" });
-    expect(persist).not.toHaveBeenCalled();
-  });
+  return {
+    persist,
+    get captured() {
+      return captured;
+    },
+  };
+}
 
-  it("rejects a raw body larger than 65,536 bytes", async () => {
-    const persist = vi.fn<PersistEvent>();
-    const response = await createEventIngressHandler(persist)(request("x".repeat(65_537)), env);
+describe(
+  "POST /api/events/ingest S03.2",
+  () => {
+    it(
+      "rejects incorrect bearer authorization before persistence",
+      async () => {
+        const persist =
+          vi.fn<PersistIdempotentEvent>();
 
-    expect(response.status).toBe(413);
-    expect(await response.json()).toEqual({ error: "payload_too_large" });
-    expect(persist).not.toHaveBeenCalled();
-  });
+        const handler =
+          createEventIngressHandler(
+            persist,
+          );
 
-  it.each([
-    ["malformed JSON", "{"],
-    ["wrong contract", JSON.stringify({ ...validEnvelope, contract_version: 2 })],
-    ["invalid event type", JSON.stringify({ ...validEnvelope, event_type: "Market Quote" })],
-    ["nonpositive version", JSON.stringify({ ...validEnvelope, event_version: 0 })],
-    ["array payload", JSON.stringify({ ...validEnvelope, payload: [] })],
-    ["provenance without source", JSON.stringify({ ...validEnvelope, provenance_record_id: "123e4567-e89b-42d3-a456-426614174000" })],
-    ["unpaired subject", JSON.stringify({ ...validEnvelope, subject_type: "instrument" })],
-    ["server field", JSON.stringify({ ...validEnvelope, environment: "prod" })],
-  ])("rejects %s as invalid_event", async (_label, body) => {
-    const persist = vi.fn<PersistEvent>();
-    const response = await createEventIngressHandler(persist)(request(body), env);
+        const response = await handler(
+          request(
+            JSON.stringify(
+              validEnvelope,
+            ),
+            {
+              headers: {
+                authorization:
+                  "Bearer incorrect",
+              },
+            },
+          ),
+          env,
+        );
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "invalid_event" });
-    expect(persist).not.toHaveBeenCalled();
-  });
+        expect(response.status)
+          .toBe(401);
 
-  it("owns identifiers and environment and hashes the exact raw body", async () => {
-    const rawBody = '{ "contract_version": 1, "event_type": "market.quote", "event_version": 1, "payload": { "price": 42 } }';
-    const capture = capturingPersistence();
-    const response = await createEventIngressHandler(capture.persist)(request(rawBody), env);
-    const responseBody = await response.json() as Record<string, unknown>;
-    const expectedHash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawBody)))]
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
+        expect(
+          await response.json(),
+        ).toEqual({
+          error: "unauthorized",
+        });
 
-    expect(response.status).toBe(202);
-    expect(capture.captured).toMatchObject({
-      id: responseBody.event_id,
-      environment: "dev",
-      request_id: responseBody.request_id,
-      correlation_id: responseBody.request_id,
-      request_body_sha256: expectedHash,
-    });
-  });
+        expect(persist)
+          .not.toHaveBeenCalled();
+      },
+    );
 
-  it("preserves a valid client correlation ID", async () => {
-    const correlationId = "123e4567-e89b-42d3-a456-426614174000";
-    const capture = capturingPersistence();
-    await createEventIngressHandler(capture.persist)(request(JSON.stringify({ ...validEnvelope, correlation_id: correlationId })), env);
+    it(
+      "preserves the JSON media-type requirement",
+      async () => {
+        const persist =
+          vi.fn<PersistIdempotentEvent>();
 
-    expect(capture.captured?.correlation_id).toBe(correlationId);
-  });
+        const response =
+          await createEventIngressHandler(
+            persist,
+          )(
+            request(
+              "{}",
+              {
+                headers: {
+                  "content-type":
+                    "text/plain",
+                },
+              },
+            ),
+            env,
+          );
 
-  it("does not acknowledge a failed persistence attempt", async () => {
-    const response = await createEventIngressHandler(async () => false)(request(JSON.stringify(validEnvelope)), env);
+        expect(response.status)
+          .toBe(415);
 
-    expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "persistence_unavailable" });
-  });
+        expect(
+          await response.json(),
+        ).toEqual({
+          error:
+            "unsupported_media_type",
+        });
 
-  it("returns 202 only after persistence succeeds", async () => {
-    const response = await createEventIngressHandler(async () => true)(request(JSON.stringify(validEnvelope)), env);
-    const body = await response.json() as Record<string, unknown>;
+        expect(persist)
+          .not.toHaveBeenCalled();
+      },
+    );
 
-    expect(response.status).toBe(202);
-    expect(body).toMatchObject({ accepted: true, contract_version: 1 });
-    expect(body.event_id).toEqual(expect.any(String));
-    expect(body.request_id).toEqual(expect.any(String));
-  });
-});
+    it(
+      "preserves the 65,536-byte body limit",
+      async () => {
+        const persist =
+          vi.fn<PersistIdempotentEvent>();
 
-describe("Supabase REST persistence", () => {
-  it("uses only runtime bindings and requires a 201 insert response", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 201 }));
-    const event = {
-      ...validEnvelope,
-      occurred_at: null,
-      source_id: null,
-      provenance_record_id: null,
-      external_event_id: null,
-      subject_type: null,
-      subject_id: null,
-      correlation_id: crypto.randomUUID(),
-      causation_event_id: null,
-      id: crypto.randomUUID(),
-      environment: "dev",
-      request_id: crypto.randomUUID(),
-      request_body_sha256: "a".repeat(64),
-    } satisfies EventLedgerInsert;
+        const response =
+          await createEventIngressHandler(
+            persist,
+          )(
+            request(
+              "x".repeat(65_537),
+            ),
+            env,
+          );
 
-    await expect(persistEvent(event, env)).resolves.toBe(true);
-    const [endpoint, init] = fetchMock.mock.calls[0];
-    expect(String(endpoint)).toBe("https://example.supabase.co/rest/v1/event_ledger");
-    expect(init?.headers).toMatchObject({
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-      prefer: "return=minimal",
-    });
-    fetchMock.mockRestore();
-  });
+        expect(response.status)
+          .toBe(413);
 
-  it("treats any non-201 response as a persistence failure", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
-    await expect(persistEvent({} as EventLedgerInsert, env)).resolves.toBe(false);
-    fetchMock.mockRestore();
-  });
-});
+        expect(
+          await response.json(),
+        ).toEqual({
+          error: "payload_too_large",
+        });
+
+        expect(persist)
+          .not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      [
+        "malformed JSON",
+        "{",
+      ],
+      [
+        "wrong contract",
+        JSON.stringify({
+          ...validEnvelope,
+          contract_version: 2,
+        }),
+      ],
+      [
+        "invalid event type",
+        JSON.stringify({
+          ...validEnvelope,
+          event_type:
+            "Market Quote",
+        }),
+      ],
+      [
+        "nonpositive version",
+        JSON.stringify({
+          ...validEnvelope,
+          event_version: 0,
+        }),
+      ],
+      [
+        "array payload",
+        JSON.stringify({
+          ...validEnvelope,
+          payload: [],
+        }),
+      ],
+      [
+        "server field",
+        JSON.stringify({
+          ...validEnvelope,
+          environment: "prod",
+        }),
+      ],
+    ])(
+      "rejects %s as invalid_event",
+      async (_label, body) => {
+        const persist =
+          vi.fn<PersistIdempotentEvent>();
+
+        const response =
+          await createEventIngressHandler(
+            persist,
+          )(
+            request(body),
+            env,
+          );
+
+        expect(response.status)
+          .toBe(400);
+
+        expect(
+          await response.json(),
+        ).toEqual({
+          error: "invalid_event",
+        });
+
+        expect(persist)
+          .not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      [
+        "missing",
+        null,
+      ],
+      [
+        "empty",
+        "",
+      ],
+      [
+        "space",
+        "has space",
+      ],
+      [
+        "too long",
+        "x".repeat(129),
+      ],
+    ])(
+      "rejects %s Idempotency-Key",
+      async (
+        _label,
+        idempotencyKey,
+      ) => {
+        const persist =
+          vi.fn<PersistIdempotentEvent>();
+
+        const response =
+          await createEventIngressHandler(
+            persist,
+          )(
+            request(
+              JSON.stringify(
+                validEnvelope,
+              ),
+              {
+                idempotencyKey,
+              },
+            ),
+            env,
+          );
+
+        expect(response.status)
+          .toBe(400);
+
+        expect(
+          await response.json(),
+        ).toEqual({
+          error:
+            "invalid_idempotency_key",
+        });
+
+        expect(persist)
+          .not.toHaveBeenCalled();
+      },
+    );
+
+    it(
+      "owns IDs and hashes both exact body and Idempotency-Key",
+      async () => {
+        const rawBody =
+          '{ "contract_version": 1, "event_type": "market.quote", "event_version": 1, "payload": { "price": 42 } }';
+
+        const idempotencyKey =
+          "client.request:001";
+
+        const capture =
+          capturingStore();
+
+        const response =
+          await createEventIngressHandler(
+            capture.persist,
+          )(
+            request(
+              rawBody,
+              {
+                idempotencyKey,
+              },
+            ),
+            env,
+          );
+
+        const responseBody = (await response.json()) as Record<string, unknown>;
+
+        const expectedBodyHash = [
+          ...new Uint8Array(
+            await crypto.subtle.digest(
+              "SHA-256",
+              new TextEncoder()
+                .encode(rawBody),
+            ),
+          ),
+        ]
+          .map(
+            (byte) =>
+              byte
+                .toString(16)
+                .padStart(2, "0"),
+          )
+          .join("");
+
+        expect(response.status)
+          .toBe(202);
+
+        expect(
+          capture.captured,
+        ).toMatchObject({
+          id:
+            responseBody.event_id,
+          environment: "dev",
+          request_id:
+            responseBody.request_id,
+          correlation_id:
+            responseBody.request_id,
+          request_body_sha256:
+            expectedBodyHash,
+          idempotency_key_sha256:
+            await hashIdempotencyKey(
+              idempotencyKey,
+            ),
+        });
+      },
+    );
+
+    it(
+      "preserves a valid client correlation ID",
+      async () => {
+        const correlationId =
+          "123e4567-e89b-42d3-a456-426614174000";
+
+        const capture =
+          capturingStore();
+
+        await createEventIngressHandler(
+          capture.persist,
+        )(
+          request(
+            JSON.stringify({
+              ...validEnvelope,
+              correlation_id:
+                correlationId,
+            }),
+          ),
+          env,
+        );
+
+        expect(
+          capture.captured
+            ?.correlation_id,
+        ).toBe(correlationId);
+      },
+    );
+
+    it(
+      "returns original IDs for same-key same-body replay",
+      async () => {
+        const originalEventId =
+          crypto.randomUUID();
+
+        const originalRequestId =
+          crypto.randomUUID();
+
+        const persist:
+          PersistIdempotentEvent =
+          async () => ({
+            status: "replay",
+            event_id:
+              originalEventId,
+            request_id:
+              originalRequestId,
+          });
+
+        const response =
+          await createEventIngressHandler(
+            persist,
+          )(
+            request(
+              JSON.stringify(
+                validEnvelope,
+              ),
+            ),
+            env,
+          );
+
+        expect(response.status)
+          .toBe(202);
+
+        expect(
+          await response.json(),
+        ).toEqual({
+          accepted: true,
+          event_id:
+            originalEventId,
+          request_id:
+            originalRequestId,
+          contract_version: 1,
+        });
+      },
+    );
+
+    it(
+      "returns 409 for same-key different-body conflict",
+      async () => {
+        const persist:
+          PersistIdempotentEvent =
+          async () => ({
+            status: "conflict",
+          });
+
+        const response =
+          await createEventIngressHandler(
+            persist,
+          )(
+            request(
+              JSON.stringify(
+                validEnvelope,
+              ),
+            ),
+            env,
+          );
+
+        expect(response.status)
+          .toBe(409);
+
+        expect(
+          await response.json(),
+        ).toEqual({
+          error:
+            "idempotency_conflict",
+        });
+      },
+    );
+
+    it(
+      "does not acknowledge unavailable durable persistence",
+      async () => {
+        const persist:
+          PersistIdempotentEvent =
+          async () => ({
+            status: "unavailable",
+          });
+
+        const response =
+          await createEventIngressHandler(
+            persist,
+          )(
+            request(
+              JSON.stringify(
+                validEnvelope,
+              ),
+            ),
+            env,
+          );
+
+        expect(response.status)
+          .toBe(503);
+
+        expect(
+          await response.json(),
+        ).toEqual({
+          error:
+            "persistence_unavailable",
+        });
+      },
+    );
+
+    it(
+      "returns 503 when queue dispatch fails after durable persistence",
+      async () => {
+        const handler =
+          createEventIngressHandler(
+            async (event) => ({
+              status: "created",
+              event_id: event.id,
+              request_id:
+                event.request_id,
+            }),
+            async () => false,
+          );
+
+        const response =
+          await handler(
+            request(
+              JSON.stringify(
+                validEnvelope,
+              ),
+            ),
+            env,
+          );
+
+        expect(response.status)
+          .toBe(503);
+
+        expect(
+          await response.json(),
+        ).toEqual({
+          error:
+            "dispatch_unavailable",
+        });
+      },
+    );
+
+    it(
+      "dispatches only after durable event persistence succeeds",
+      async () => {
+        const order: string[] = [];
+
+        const handler =
+          createEventIngressHandler(
+            async (event) => {
+              order.push(
+                "ledger",
+              );
+
+              return {
+                status: "created",
+                event_id: event.id,
+                request_id:
+                  event.request_id,
+              };
+            },
+            async () => {
+              order.push(
+                "queue",
+              );
+
+              return true;
+            },
+          );
+
+        const response =
+          await handler(
+            request(
+              JSON.stringify(
+                validEnvelope,
+              ),
+            ),
+            env,
+          );
+
+        expect(response.status)
+          .toBe(202);
+
+        expect(order)
+          .toEqual([
+            "ledger",
+            "queue",
+          ]);
+      },
+    );
+
+    it(
+      "returns 202 only after an event-store success",
+      async () => {
+        const response =
+          await createEventIngressHandler(
+            async (event) => ({
+              status: "created",
+              event_id: event.id,
+              request_id:
+                event.request_id,
+            }),
+          )(
+            request(
+              JSON.stringify(
+                validEnvelope,
+              ),
+            ),
+            env,
+          );
+
+        const body = (await response.json()) as Record<string, unknown>;
+
+        expect(response.status)
+          .toBe(202);
+
+        expect(body).toMatchObject({
+          accepted: true,
+          contract_version: 1,
+        });
+
+        expect(body.event_id)
+          .toEqual(
+            expect.any(String),
+          );
+
+        expect(body.request_id)
+          .toEqual(
+            expect.any(String),
+          );
+      },
+    );
+  },
+);

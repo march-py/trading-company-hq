@@ -33,13 +33,14 @@ if (/create\s+policy\b/i.test(migration)) throw new Error("event_ledger must not
 
 requireMatch(worker, /MAX_EVENT_BODY_BYTES/, "Ingress must enforce the body cap");
 requireMatch(worker, /timingSafeEqual/, "Ingress token comparison must be timing safe");
-requireMatch(worker, /request_body_sha256:\s*await\s+sha256Hex\(rawBody\)/, "Ingress must hash exact raw bytes");
+requireMatch(worker, /const\s+requestBodySha256\s*=\s*await\s+sha256Hex\(rawBody\)/, "Ingress must hash exact raw bytes");
+requireMatch(worker, /request_body_sha256:\s*requestBodySha256/, "Ingress must persist the exact raw-body hash");
 requireMatch(persistence, /response\.status\s*===\s*201/, "Persistence must require a confirmed insert");
 for (const binding of ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "EVENT_INGRESS_TOKEN"]) {
   requireMatch(persistence, new RegExp(`\\b${binding}\\b`), `Missing runtime binding: ${binding}`);
 }
 
-for (const forbidden of ["opportunities", "tradingview", "queue", "dead_letter", "retry_count"]) {
+for (const forbidden of ["opportunities", "tradingview"]) {
   requireMatch([migration, worker, persistence].join("\n"), new RegExp(`^(?![\\s\\S]*\\b${forbidden}\\b)`, "i"), `Forbidden later-stage scope: ${forbidden}`);
 }
 
