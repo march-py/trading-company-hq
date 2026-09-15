@@ -30,11 +30,18 @@ import {
   isTradingViewWebhookRouteCandidate,
 } from "./tradingview-auth";
 
+import {
+  createOpportunityApiHandler,
+} from "./opportunity-api";
+
 const handleEventIngress =
   createEventIngressHandler();
 
 const handleTradingViewWebhook =
   createTradingViewWebhookHandler();
+
+const handleOpportunityApi =
+  createOpportunityApiHandler();
 
 function mainQueueName(
   environment:
@@ -105,6 +112,19 @@ export default {
               "no-store",
           },
         },
+      );
+    }
+
+    if (
+      url.pathname
+        === "/api/opportunities"
+      || url.pathname.startsWith(
+        "/api/opportunities/",
+      )
+    ) {
+      return handleOpportunityApi(
+        request,
+        env,
       );
     }
 
