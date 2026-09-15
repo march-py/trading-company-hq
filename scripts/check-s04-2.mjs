@@ -13,9 +13,11 @@ const migrationDir = new URL(
   root,
 );
 
-const migrationFiles = (
-  await readdir(migrationDir)
-)
+const allMigrationFiles =
+  await readdir(migrationDir);
+
+const migrationFiles =
+  allMigrationFiles
   .filter((name) =>
     name.endsWith(
       "_s04_2_opportunity_lifecycle.sql",
@@ -39,6 +41,29 @@ const sql = await readFile(
   ),
   "utf8",
 );
+
+const alignmentMigrationFile =
+  allMigrationFiles.find(
+    (name) =>
+      name.endsWith(
+        "_s04_2_strategy_id_contract_alignment.sql",
+      ),
+  );
+
+if (!alignmentMigrationFile) {
+  throw new Error(
+    "S04.2 strategy-id contract alignment migration missing",
+  );
+}
+
+const alignmentSql =
+  await readFile(
+    new URL(
+      alignmentMigrationFile,
+      migrationDir,
+    ),
+    "utf8",
+  );
 
 function requireMatch(
   pattern,
@@ -73,6 +98,16 @@ requireMatch(
   /tradingview_deep_link/,
   "TradingView deep-link support missing",
 );
+
+if (
+  !alignmentSql.includes(
+    "strategy_id ~ '^[a-z0-9]+([._-][a-z0-9]+)*$'",
+  )
+) {
+  throw new Error(
+    "S04.2 strategy-id contract does not match TradingView contract",
+  );
+}
 
 for (const state of [
   "detected",

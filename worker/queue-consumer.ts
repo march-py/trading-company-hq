@@ -8,6 +8,11 @@ import {
   type BeginProcessingResult,
 } from "./processing-store";
 
+import {
+  materializeOpportunityForEvent,
+  type OpportunityMaterializationResult,
+} from "./opportunity-store";
+
 export const QUEUE_RETRY_DELAY_SECONDS = 30;
 
 export interface QueueMessageLike {
@@ -68,11 +73,17 @@ export type RecordFailure = (
   env: RuntimeEnv,
 ) => Promise<boolean>;
 
+export type ProcessOpportunity = (
+  eventId: string,
+  env: RuntimeEnv,
+) => Promise<OpportunityMaterializationResult>;
+
 export interface QueueConsumerDependencies {
   readCanonicalEvent: ReadCanonicalEvent;
   beginReceipt: BeginReceipt;
   markSucceeded: MarkSucceeded;
   recordFailure: RecordFailure;
+  processOpportunity?: ProcessOpportunity;
 }
 
 function runtimeHeaders(
@@ -250,6 +261,8 @@ const defaultDependencies:
       markProcessingSucceeded,
     recordFailure:
       recordProcessingFailure,
+    processOpportunity:
+      materializeOpportunityForEvent,
   };
 
 function retryMessage(
@@ -335,6 +348,54 @@ export async function handleMainQueueMessage(
   ) {
     message.ack();
     return;
+  }
+
+  if (
+    dependencies.processOpportunity
+  ) {
+    const opportunity =
+      await dependencies
+        .processOpportunity(
+          canonical.event.id,
+          env,
+        );
+
+    let failureCode:
+      string | null = null;
+
+    if (
+      opportunity.status
+      === "unavailable"
+    ) {
+      failureCode =
+        "opportunity_store_unavailable";
+    } else if (
+      opportunity.status
+      === "invalid"
+    ) {
+      failureCode =
+        "invalid_tradingview_event";
+    } else if (
+      opportunity.status
+      === "conflict"
+    ) {
+      failureCode =
+        "opportunity_dedupe_conflict";
+    }
+
+    if (failureCode !== null) {
+      await dependencies
+        .recordFailure(
+          canonical.event.id,
+          canonical.event.environment,
+          message.id,
+          failureCode,
+          env,
+        );
+
+      retryMessage(message);
+      return;
+    }
   }
 
   const marked =
