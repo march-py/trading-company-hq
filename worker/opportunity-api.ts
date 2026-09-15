@@ -10,6 +10,12 @@ import {
   type OpportunityListInput,
 } from "./opportunity-query";
 
+import {
+  reconcileOpportunities,
+  type ReconciliationInput,
+  type ReconciliationResult,
+} from "./opportunity-reconciliation";
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -36,6 +42,10 @@ export interface OpportunityApiDependencies {
     typeof listOpportunities;
   detail:
     typeof getOpportunityDetail;
+  reconcile?: (
+    input: ReconciliationInput,
+    env: RuntimeEnv,
+  ) => Promise<ReconciliationResult>;
 }
 
 function jsonResponse(
@@ -57,7 +67,9 @@ function jsonResponse(
   );
 }
 
-function methodNotAllowed(): Response {
+function methodNotAllowed(
+  allow: "GET" | "POST",
+): Response {
   return jsonResponse(
     {
       error:
@@ -65,9 +77,251 @@ function methodNotAllowed(): Response {
     },
     405,
     {
-      allow: "GET",
+      allow,
     },
   );
+}
+
+const MAX_RECONCILIATION_BODY_BYTES =
+  4096;
+
+function isJsonRequest(
+  request: Request,
+): boolean {
+  return (
+    request.headers
+      .get("content-type")
+      ?.split(";", 1)[0]
+      ?.trim()
+      .toLowerCase()
+    === "application/json"
+  );
+}
+
+type JsonBodyReadResult =
+  | {
+      status: "ok";
+      value:
+        Record<string, unknown>;
+    }
+  | {
+      status: "invalid";
+    }
+  | {
+      status: "too_large";
+    };
+
+async function readBoundedJsonObject(
+  request: Request,
+): Promise<JsonBodyReadResult> {
+  const declaredLength =
+    request.headers.get(
+      "content-length",
+    );
+
+  if (
+    declaredLength !== null
+  ) {
+    const parsed =
+      Number(declaredLength);
+
+    if (
+      !Number.isFinite(parsed)
+      || parsed < 0
+      || parsed
+        > MAX_RECONCILIATION_BODY_BYTES
+    ) {
+      return {
+        status: "too_large",
+      };
+    }
+  }
+
+  if (request.body === null) {
+    return {
+      status: "invalid",
+    };
+  }
+
+  const reader =
+    request.body.getReader();
+
+  const chunks:
+    Uint8Array[] = [];
+
+  let total = 0;
+
+  while (true) {
+    const {
+      done,
+      value,
+    } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    total +=
+      value.byteLength;
+
+    if (
+      total
+      > MAX_RECONCILIATION_BODY_BYTES
+    ) {
+      await reader.cancel();
+
+      return {
+        status: "too_large",
+      };
+    }
+
+    chunks.push(value);
+  }
+
+  if (total === 0) {
+    return {
+      status: "invalid",
+    };
+  }
+
+  const bytes =
+    new Uint8Array(total);
+
+  let offset = 0;
+
+  for (
+    const chunk
+    of chunks
+  ) {
+    bytes.set(
+      chunk,
+      offset,
+    );
+
+    offset +=
+      chunk.byteLength;
+  }
+
+  let decoded: unknown;
+
+  try {
+    decoded =
+      JSON.parse(
+        new TextDecoder(
+          "utf-8",
+          {
+            fatal: true,
+          },
+        ).decode(bytes),
+      );
+  } catch {
+    return {
+      status: "invalid",
+    };
+  }
+
+  if (
+    typeof decoded
+      !== "object"
+    || decoded === null
+    || Array.isArray(decoded)
+  ) {
+    return {
+      status: "invalid",
+    };
+  }
+
+  return {
+    status: "ok",
+    value:
+      decoded as Record<
+        string,
+        unknown
+      >,
+  };
+}
+
+function parseReconciliationInput(
+  value:
+    Record<string, unknown>,
+): ReconciliationInput | null {
+  const allowed =
+    new Set([
+      "mode",
+      "lookback_hours",
+      "limit",
+    ]);
+
+  for (
+    const key
+    of Object.keys(value)
+  ) {
+    if (!allowed.has(key)) {
+      return null;
+    }
+  }
+
+  if (
+    value.mode !== "dry_run"
+    && value.mode !== "repair"
+  ) {
+    return null;
+  }
+
+  const input:
+    ReconciliationInput = {
+      mode:
+        value.mode,
+      lookback_hours: 24,
+      limit: 100,
+    };
+
+  if (
+    value.lookback_hours
+    !== undefined
+  ) {
+    if (
+      !Number.isInteger(
+        value.lookback_hours,
+      )
+      || Number(
+        value.lookback_hours,
+      ) < 1
+      || Number(
+        value.lookback_hours,
+      ) > 168
+    ) {
+      return null;
+    }
+
+    input.lookback_hours =
+      Number(
+        value.lookback_hours,
+      );
+  }
+
+  if (
+    value.limit !== undefined
+  ) {
+    if (
+      !Number.isInteger(
+        value.limit,
+      )
+      || Number(
+        value.limit,
+      ) < 1
+      || Number(
+        value.limit,
+      ) > 500
+    ) {
+      return null;
+    }
+
+    input.limit =
+      Number(value.limit);
+  }
+
+  return input;
 }
 
 function hasDuplicateParams(
@@ -233,12 +487,124 @@ export function createOpportunityApiHandler(
 
     if (
       url.pathname
+      === `${OPPORTUNITY_PATH}/reconcile`
+    ) {
+      if (
+        request.method !== "POST"
+      ) {
+        return methodNotAllowed(
+          "POST",
+        );
+      }
+
+      if (!isJsonRequest(request)) {
+        return jsonResponse(
+          {
+            error:
+              "unsupported_media_type",
+          },
+          415,
+        );
+      }
+
+      const body =
+        await readBoundedJsonObject(
+          request,
+        );
+
+      if (
+        body.status
+        === "too_large"
+      ) {
+        return jsonResponse(
+          {
+            error:
+              "payload_too_large",
+          },
+          413,
+        );
+      }
+
+      if (
+        body.status
+        === "invalid"
+      ) {
+        return jsonResponse(
+          {
+            error:
+              "invalid_reconciliation_request",
+          },
+          400,
+        );
+      }
+
+      const input =
+        parseReconciliationInput(
+          body.value,
+        );
+
+      if (input === null) {
+        return jsonResponse(
+          {
+            error:
+              "invalid_reconciliation_request",
+          },
+          400,
+        );
+      }
+
+      const reconcile =
+        dependencies.reconcile
+        ?? reconcileOpportunities;
+
+      const result =
+        await reconcile(
+          input,
+          env,
+        );
+
+      if (
+        result.status
+        === "unavailable"
+      ) {
+        return jsonResponse(
+          {
+            error:
+              "reconciliation_store_unavailable",
+          },
+          503,
+        );
+      }
+
+      if (
+        result.status
+        === "repair_failed"
+      ) {
+        return jsonResponse(
+          {
+            error:
+              "reconciliation_dispatch_failed",
+            ...result.report,
+            failed_event_ids:
+              result.failed_event_ids,
+          },
+          503,
+        );
+      }
+
+      return jsonResponse(
+        result.report,
+      );
+    }
+
+    if (
+      url.pathname
       === OPPORTUNITY_PATH
     ) {
       if (
         request.method !== "GET"
       ) {
-        return methodNotAllowed();
+        return methodNotAllowed("GET");
       }
 
       const input =
@@ -319,7 +685,7 @@ export function createOpportunityApiHandler(
     if (
       request.method !== "GET"
     ) {
-      return methodNotAllowed();
+      return methodNotAllowed("GET");
     }
 
     if (
