@@ -31,9 +31,10 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "typecheck": "tsc",
     "lint": "eslint .",
-    "test": "npm run check:foundation && npm run check:visual-system && npm run check:palette && npm run check:hq-shell && npm run check:interaction-foundation && npm run check:supabase-schema && npm run check:event-ingress && npm run check:s03-2 && npm run check:s03-3 && npm run check:s04-1 && vitest run",
+    "test": "npm run check:foundation && npm run check:visual-system && npm run check:palette && npm run check:hq-shell && npm run check:interaction-foundation && npm run check:supabase-schema && npm run check:event-ingress && npm run check:s03-2 && npm run check:s03-3 && npm run check:s04-1 && npm run check:s04-2 && vitest run",
     "check": "npm run cf-typegen && npm run check:secrets && npm run typecheck && npm run lint && npm test && npm run build:dev && npm run build:prod",
-    "check:s04-1": "node scripts/check-s04-1.mjs"
+    "check:s04-1": "node scripts/check-s04-1.mjs",
+    "check:s04-2": "node scripts/check-s04-2.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
