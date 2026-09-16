@@ -29,8 +29,19 @@ for (const marker of ["@media (max-width: 900px)", "@media (max-width: 600px)", 
   if (!Object.values(sources).some((contents) => contents.includes(marker))) throw new Error(`Missing responsive or motion rule: ${marker}`);
 }
 
+// S01.3 intentionally keeps the reusable interaction primitives provider-agnostic.
+// Later stages are allowed to integrate providers in App/page modules, so do not
+// treat legitimate product integration there as an S01 regression.
+const foundationSources = [
+  sources.styles,
+  sources.tokens,
+  sources.state,
+  sources.palette,
+  sources.drawer,
+];
+
 for (const excluded of ["supabase", "tradingview", "broker api", "exchange api"]) {
-  if (Object.values(sources).some((contents) => contents.toLowerCase().includes(excluded))) throw new Error(`Later-stage integration marker found: ${excluded}`);
+  if (foundationSources.some((contents) => contents.toLowerCase().includes(excluded))) throw new Error(`Provider coupling found in S01 interaction foundation: ${excluded}`);
 }
 
 console.log("S01.3 state, responsive, and interaction foundation check passed");
