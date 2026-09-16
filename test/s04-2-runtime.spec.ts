@@ -33,6 +33,45 @@ const env = {
     "test-token",
 } as RuntimeEnv;
 
+const TEST_INSTRUMENT_ID =
+  "61111111-1111-4111-8111-111111111111";
+
+const TEST_VENUE_INSTRUMENT_ID =
+  "62222222-2222-4222-8222-222222222222";
+
+function instrumentResolutionResponse(
+  url: URL,
+): Response | null {
+  if (
+    url.pathname
+    === "/rest/v1/instrument_aliases"
+  ) {
+    return Response.json([
+      {
+        instrument_id: null,
+        venue_instrument_id:
+          TEST_VENUE_INSTRUMENT_ID,
+      },
+    ]);
+  }
+
+  if (
+    url.pathname
+    === "/rest/v1/venue_instruments"
+  ) {
+    return Response.json([
+      {
+        id:
+          TEST_VENUE_INSTRUMENT_ID,
+        instrument_id:
+          TEST_INSTRUMENT_ID,
+      },
+    ]);
+  }
+
+  return null;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -100,6 +139,17 @@ describe(
                 String(input),
               );
 
+            const identityResponse =
+              instrumentResolutionResponse(
+                url,
+              );
+
+            if (
+              identityResponse !== null
+            ) {
+              return identityResponse;
+            }
+
             if (
               url.pathname
               === "/rest/v1/event_ledger"
@@ -161,6 +211,18 @@ describe(
         );
 
         expect(
+          inserted?.instrument_id,
+        ).toBe(
+          TEST_INSTRUMENT_ID,
+        );
+
+        expect(
+          inserted?.venue_instrument_id,
+        ).toBe(
+          TEST_VENUE_INSTRUMENT_ID,
+        );
+
+        expect(
           inserted
             ?.tradingview_deep_link,
         ).toBe(
@@ -198,6 +260,17 @@ describe(
               new URL(
                 String(input),
               );
+
+            const identityResponse =
+              instrumentResolutionResponse(
+                url,
+              );
+
+            if (
+              identityResponse !== null
+            ) {
+              return identityResponse;
+            }
 
             if (
               url.pathname
@@ -288,6 +361,72 @@ describe(
             opportunity_id:
               existingId,
           });
+      },
+    );
+
+    it(
+      "keeps an unmapped TradingView event durable without creating an opportunity",
+      async () => {
+        const event =
+          tradingViewEvent();
+
+        const fetchMock =
+          vi.spyOn(
+            globalThis,
+            "fetch",
+          ).mockImplementation(
+            async (
+              input,
+              init,
+            ) => {
+              const url =
+                new URL(
+                  String(input),
+                );
+
+              if (
+                url.pathname
+                === "/rest/v1/event_ledger"
+              ) {
+                return Response.json([
+                  event,
+                ]);
+              }
+
+              if (
+                url.pathname
+                === "/rest/v1/instrument_aliases"
+              ) {
+                return Response.json([]);
+              }
+
+              if (
+                url.pathname
+                === "/rest/v1/opportunities"
+                && init?.method === "POST"
+              ) {
+                throw new Error(
+                  "opportunity must not be created",
+                );
+              }
+
+              throw new Error(
+                `unexpected fetch: ${url}`,
+              );
+            },
+          );
+
+        await expect(
+          materializeOpportunityForEvent(
+            event.id,
+            env,
+          ),
+        ).resolves.toEqual({
+          status: "unresolved_instrument",
+        });
+
+        expect(fetchMock)
+          .toHaveBeenCalledTimes(2);
       },
     );
 
@@ -566,6 +705,17 @@ describe(
               new URL(
                 String(input),
               );
+
+            const identityResponse =
+              instrumentResolutionResponse(
+                url,
+              );
+
+            if (
+              identityResponse !== null
+            ) {
+              return identityResponse;
+            }
 
             if (
               url.pathname

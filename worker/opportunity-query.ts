@@ -21,6 +21,8 @@ export interface OpportunitySummary {
   environment:
     RuntimeEnv["APP_ENV"];
   source_event_id: string;
+  instrument_id: string;
+  venue_instrument_id: string | null;
   status: OpportunityStatus;
   strategy_id: string;
   strategy_version: number;
@@ -200,6 +202,21 @@ function isOpportunitySummary(
       === "string"
     && UUID_PATTERN.test(
       value.source_event_id,
+    )
+    && typeof value.instrument_id
+      === "string"
+    && UUID_PATTERN.test(
+      value.instrument_id,
+    )
+    && (
+      value.venue_instrument_id === null
+      || (
+        typeof value.venue_instrument_id
+          === "string"
+        && UUID_PATTERN.test(
+          value.venue_instrument_id,
+        )
+      )
     )
     && isOpportunityStatus(
       value.status,
@@ -421,6 +438,8 @@ const OPPORTUNITY_SELECT = [
   "id",
   "environment",
   "source_event_id",
+  "instrument_id",
+  "venue_instrument_id",
   "status",
   "strategy_id",
   "strategy_version",
