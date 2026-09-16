@@ -34,6 +34,16 @@ import {
   createOpportunityApiHandler,
 } from "./opportunity-api";
 
+import {
+  handleOpportunitySnapshotApi,
+  isOpportunitySnapshotApiRoute,
+} from "./opportunity-snapshot-api";
+
+import {
+  processDueOpportunitySnapshots,
+  reconcileRecentOpportunitySnapshotSchedules,
+} from "./opportunity-snapshot";
+
 const handleEventIngress =
   createEventIngressHandler();
 
@@ -59,6 +69,18 @@ function deadLetterQueueName(
   return environment === "dev"
     ? "trading-company-events-dlq-dev"
     : "trading-company-events-dlq-prod";
+}
+
+async function runSnapshotMaintenance(
+  env: RuntimeEnv,
+): Promise<void> {
+  await reconcileRecentOpportunitySnapshotSchedules(
+    env,
+  );
+
+  await processDueOpportunitySnapshots(
+    env,
+  );
 }
 
 export default {
@@ -112,6 +134,17 @@ export default {
               "no-store",
           },
         },
+      );
+    }
+
+    if (
+      isOpportunitySnapshotApiRoute(
+        url.pathname,
+      )
+    ) {
+      return handleOpportunitySnapshotApi(
+        request,
+        env,
       );
     }
 
@@ -183,6 +216,10 @@ export default {
         env,
       );
 
+      await runSnapshotMaintenance(
+        env,
+      );
+
       return;
     }
 
@@ -219,6 +256,10 @@ export default {
         scheduledTime:
           controller.scheduledTime,
       },
+      env,
+    );
+
+    await runSnapshotMaintenance(
       env,
     );
   },
