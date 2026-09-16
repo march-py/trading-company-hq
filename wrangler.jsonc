@@ -19,6 +19,15 @@
         "APP_ENV": "dev",
         "APP_NAME": "trading-company-hq"
       },
+      "browser": {
+        "binding": "BROWSER"
+      },
+      "r2_buckets": [
+        {
+          "binding": "SNAPSHOT_BUCKET",
+          "bucket_name": "trading-company-snapshots-dev"
+        }
+      ],
       "queues": {
         "producers": [
           {
@@ -50,6 +59,15 @@
         "APP_ENV": "prod",
         "APP_NAME": "trading-company-hq"
       },
+      "browser": {
+        "binding": "BROWSER"
+      },
+      "r2_buckets": [
+        {
+          "binding": "SNAPSHOT_BUCKET",
+          "bucket_name": "trading-company-snapshots-prod"
+        }
+      ],
       "queues": {
         "producers": [
           {
