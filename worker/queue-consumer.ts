@@ -371,6 +371,12 @@ export async function handleMainQueueMessage(
         "opportunity_store_unavailable";
     } else if (
       opportunity.status
+      === "unresolved_instrument"
+    ) {
+      failureCode =
+        "unresolved_instrument";
+    } else if (
+      opportunity.status
       === "invalid"
     ) {
       failureCode =

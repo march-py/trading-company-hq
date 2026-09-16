@@ -48,6 +48,8 @@ export interface OpportunityInsert {
   status: "detected";
   strategy_id: string;
   strategy_version: number;
+  instrument_id: string;
+  venue_instrument_id: string | null;
   exchange: string;
   ticker: string;
   interval: string;
@@ -67,6 +69,8 @@ interface ExistingOpportunityRow {
   dedupe_key_sha256: string;
   strategy_id: string;
   strategy_version: number;
+  instrument_id: string;
+  venue_instrument_id: string | null;
   exchange: string;
   ticker: string;
   interval: string;
@@ -91,6 +95,9 @@ export type OpportunityMaterializationResult =
     }
   | {
       status: "skipped";
+    }
+  | {
+      status: "unresolved_instrument";
     }
   | {
       status: "invalid";
@@ -454,6 +461,169 @@ async function readCanonicalEvent(
   }
 }
 
+interface ResolvedInstrument {
+  instrument_id: string;
+  venue_instrument_id: string | null;
+}
+
+type InstrumentResolutionResult =
+  | {
+      status: "found";
+      identity: ResolvedInstrument;
+    }
+  | {
+      status: "missing";
+    }
+  | {
+      status: "unavailable";
+    };
+
+async function resolveTradingViewInstrument(
+  signal: TradingViewSignalFields,
+  env: RuntimeEnv,
+): Promise<InstrumentResolutionResult> {
+  let aliasEndpoint: URL;
+
+  try {
+    aliasEndpoint = new URL(
+      "/rest/v1/instrument_aliases",
+      env.SUPABASE_URL,
+    );
+  } catch {
+    return { status: "unavailable" };
+  }
+
+  aliasEndpoint.searchParams.set(
+    "select",
+    "instrument_id,venue_instrument_id",
+  );
+  aliasEndpoint.searchParams.set(
+    "namespace",
+    "eq.tradingview",
+  );
+  aliasEndpoint.searchParams.set(
+    "alias",
+    `eq.${signal.exchange}:${signal.ticker}`,
+  );
+  aliasEndpoint.searchParams.set("limit", "1");
+
+  let aliasRows: unknown;
+
+  try {
+    const response = await fetch(
+      aliasEndpoint,
+      {
+        method: "GET",
+        headers: runtimeHeaders(env),
+      },
+    );
+
+    if (response.status !== 200) {
+      return { status: "unavailable" };
+    }
+
+    aliasRows = await response.json();
+  } catch {
+    return { status: "unavailable" };
+  }
+
+  if (!Array.isArray(aliasRows)) {
+    return { status: "unavailable" };
+  }
+
+  if (aliasRows.length === 0) {
+    return { status: "missing" };
+  }
+
+  const aliasRow = aliasRows[0];
+
+  if (!isObject(aliasRow)) {
+    return { status: "unavailable" };
+  }
+
+  if (
+    typeof aliasRow.instrument_id === "string"
+    && UUID_PATTERN.test(aliasRow.instrument_id)
+    && aliasRow.venue_instrument_id === null
+  ) {
+    return {
+      status: "found",
+      identity: {
+        instrument_id: aliasRow.instrument_id,
+        venue_instrument_id: null,
+      },
+    };
+  }
+
+  if (
+    aliasRow.instrument_id !== null
+    || typeof aliasRow.venue_instrument_id !== "string"
+    || !UUID_PATTERN.test(aliasRow.venue_instrument_id)
+  ) {
+    return { status: "unavailable" };
+  }
+
+  const venueInstrumentId = aliasRow.venue_instrument_id;
+
+  let venueEndpoint: URL;
+
+  try {
+    venueEndpoint = new URL(
+      "/rest/v1/venue_instruments",
+      env.SUPABASE_URL,
+    );
+  } catch {
+    return { status: "unavailable" };
+  }
+
+  venueEndpoint.searchParams.set(
+    "select",
+    "id,instrument_id",
+  );
+  venueEndpoint.searchParams.set(
+    "id",
+    `eq.${venueInstrumentId}`,
+  );
+  venueEndpoint.searchParams.set("limit", "1");
+
+  try {
+    const response = await fetch(
+      venueEndpoint,
+      {
+        method: "GET",
+        headers: runtimeHeaders(env),
+      },
+    );
+
+    if (response.status !== 200) {
+      return { status: "unavailable" };
+    }
+
+    const rows: unknown = await response.json();
+
+    if (
+      !Array.isArray(rows)
+      || rows.length !== 1
+      || !isObject(rows[0])
+      || rows[0].id !== venueInstrumentId
+      || typeof rows[0].instrument_id !== "string"
+      || !UUID_PATTERN.test(rows[0].instrument_id)
+    ) {
+      return { status: "unavailable" };
+    }
+
+    return {
+      status: "found",
+      identity: {
+        instrument_id: rows[0].instrument_id,
+        venue_instrument_id: venueInstrumentId,
+      },
+    };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
 function tradingViewDeepLink(
   exchange: string,
   ticker: string,
@@ -475,6 +645,8 @@ async function buildOpportunity(
   event: CanonicalEventRow,
   signal:
     TradingViewSignalFields,
+  instrument:
+    ResolvedInstrument,
 ): Promise<OpportunityInsert> {
   const identity =
     JSON.stringify({
@@ -521,6 +693,10 @@ async function buildOpportunity(
       signal.strategy_id,
     strategy_version:
       signal.strategy_version,
+    instrument_id:
+      instrument.instrument_id,
+    venue_instrument_id:
+      instrument.venue_instrument_id,
     exchange:
       signal.exchange,
     ticker:
@@ -565,6 +741,21 @@ function isExistingOpportunityRow(
       === "string"
     && Number.isInteger(
       value.strategy_version,
+    )
+    && typeof value.instrument_id
+      === "string"
+    && UUID_PATTERN.test(
+      value.instrument_id,
+    )
+    && (
+      value.venue_instrument_id === null
+      || (
+        typeof value.venue_instrument_id
+          === "string"
+        && UUID_PATTERN.test(
+          value.venue_instrument_id,
+        )
+      )
     )
     && typeof value.exchange
       === "string"
@@ -624,6 +815,8 @@ async function lookupOpportunity(
       "dedupe_key_sha256",
       "strategy_id",
       "strategy_version",
+      "instrument_id",
+      "venue_instrument_id",
       "exchange",
       "ticker",
       "interval",
@@ -732,6 +925,10 @@ function matchesCandidate(
       === candidate.strategy_id
     && row.strategy_version
       === candidate.strategy_version
+    && row.instrument_id
+      === candidate.instrument_id
+    && row.venue_instrument_id
+      === candidate.venue_instrument_id
     && row.exchange
       === candidate.exchange
     && row.ticker
@@ -797,10 +994,33 @@ export async function materializeOpportunityForEvent(
     };
   }
 
+  const resolution =
+    await resolveTradingViewInstrument(
+      signal,
+      env,
+    );
+
+  if (
+    resolution.status
+    === "unavailable"
+  ) {
+    return { status: "unavailable" };
+  }
+
+  if (
+    resolution.status
+    === "missing"
+  ) {
+    return {
+      status: "unresolved_instrument",
+    };
+  }
+
   const candidate =
     await buildOpportunity(
       source.event,
       signal,
+      resolution.identity,
     );
 
   let endpoint: URL;

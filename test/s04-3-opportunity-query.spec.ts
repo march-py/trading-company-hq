@@ -40,6 +40,10 @@ function opportunity(
       "dev",
     source_event_id:
       sourceEventId,
+    instrument_id:
+      "61111111-1111-4111-8111-111111111111",
+    venue_instrument_id:
+      "62222222-2222-4222-8222-222222222222",
     status:
       "detected",
     strategy_id:
