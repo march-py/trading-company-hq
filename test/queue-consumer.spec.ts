@@ -559,6 +559,58 @@ describe(
     );
 
     it(
+      "runs best-effort opportunity post-processing after core success",
+      async () => {
+        const {
+          message,
+          ack,
+          retry,
+        } = queueMessage();
+
+        const opportunityId =
+          crypto.randomUUID();
+
+        const postProcessOpportunity =
+          vi.fn(
+            async () => {
+              throw new Error(
+                "snapshot failure",
+              );
+            },
+          );
+
+        await expect(
+          handleMainQueueMessage(
+            message,
+            env,
+            dependencies({
+              processOpportunity:
+                async () => ({
+                  status: "created",
+                  opportunity_id:
+                    opportunityId,
+                }),
+              postProcessOpportunity,
+            }),
+          ),
+        ).resolves.toBeUndefined();
+
+        expect(ack)
+          .toHaveBeenCalledTimes(1);
+
+        expect(retry)
+          .not.toHaveBeenCalled();
+
+        expect(
+          postProcessOpportunity,
+        ).toHaveBeenCalledWith(
+          opportunityId,
+          env,
+        );
+      },
+    );
+
+    it(
       "processes a batch with awaited iteration",
       async () => {
         const first =
