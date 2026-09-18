@@ -142,6 +142,7 @@ function buildSnapshotHtml(
   .direction { color: ${direction === "short" ? "#9d4935" : direction === "long" ? "#2b7155" : "#6f766f"}; font-weight: 750; text-transform: uppercase; }
   .chart-shell { overflow: hidden; border: 1px solid #cfd6ca; border-radius: 18px; background: #fff; }
   .tradingview-widget-container, .tradingview-widget-container__widget { width: 100%; height: 100%; }
+  .tradingview-widget-container iframe { width: 100% !important; height: 100% !important; }
 </style>
 </head>
 <body>
@@ -160,16 +161,14 @@ function buildSnapshotHtml(
   <div class="chart-shell">
     <div class="tradingview-widget-container">
       <div class="tradingview-widget-container__widget"></div>
+      <script
+        type="text/javascript"
+        src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"
+        async
+      >${escapeScriptJson(widgetConfig)}</script>
     </div>
   </div>
 </div>
-<script src="https://s3.tradingview.com/tv.js"></script>
-<script>
-  const config = ${escapeScriptJson(widgetConfig)};
-  if (window.TradingView && window.TradingView.widget) {
-    new window.TradingView.widget({ ...config, container_id: document.querySelector('.tradingview-widget-container__widget') });
-  }
-</script>
 </body>
 </html>`;
 }
@@ -401,7 +400,12 @@ export async function captureOpportunitySnapshot(
         waitUntil: "networkidle2",
         timeout: 45_000,
       },
-      waitForTimeout: 4_000,
+      waitForSelector: {
+        selector: ".tradingview-widget-container iframe",
+        visible: true,
+        timeout: 45_000,
+      },
+      waitForTimeout: 6_000,
       screenshotOptions: {
         type: "png",
         fullPage: false,
