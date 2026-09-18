@@ -122,7 +122,7 @@ export function NotificationCenter({
   onOpenSetupFinder,
 }: {
   onOpenSetupFinder:
-    () => void;
+    (opportunityId?: string) => void;
 }) {
   const [
     items,
@@ -514,7 +514,10 @@ export function NotificationCenter({
                         className="text-button"
                         type="button"
                         onClick={
-                          onOpenSetupFinder
+                          () =>
+                            onOpenSetupFinder(
+                              item.opportunity_id,
+                            )
                         }
                       >
                         Review opportunity
