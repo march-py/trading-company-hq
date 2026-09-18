@@ -46,6 +46,21 @@ function isObject(
   );
 }
 
+function priorityRank(
+  value: unknown,
+): number {
+  if (
+    value === "low"
+    || value === "normal"
+    || value === "high"
+    || value === "critical"
+  ) {
+    return PRIORITY_RANK[value];
+  }
+
+  return 0;
+}
+
 function runtimeHeaders(
   env: RuntimeEnv,
 ): Record<string, string> {
@@ -576,26 +591,14 @@ async function listNotifications(
             right,
           ) => {
             const leftPriority =
-              typeof left.priority
-                === "string"
-                && left.priority
-                  in PRIORITY_RANK
-                ? PRIORITY_RANK[
-                    left.priority
-                      as Priority
-                  ]
-                : 0;
+              priorityRank(
+                left.priority,
+              );
 
             const rightPriority =
-              typeof right.priority
-                === "string"
-                && right.priority
-                  in PRIORITY_RANK
-                ? PRIORITY_RANK[
-                    right.priority
-                      as Priority
-                  ]
-                : 0;
+              priorityRank(
+                right.priority,
+              );
 
             if (
               leftPriority
