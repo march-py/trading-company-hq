@@ -20,6 +20,13 @@ type Priority =
   | "high"
   | "critical";
 
+const PRIORITY_RANK: Record<Priority, number> = {
+  low: 1,
+  normal: 2,
+  high: 3,
+  critical: 4,
+};
+
 type RpcResult = {
   result: string;
   opportunity_id?: string;
@@ -28,6 +35,16 @@ type RpcResult = {
   request_status?: string;
   status?: string;
 };
+
+function isObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object"
+    && value !== null
+    && !Array.isArray(value)
+  );
+}
 
 function runtimeHeaders(
   env: RuntimeEnv,
@@ -286,6 +303,28 @@ async function readAlertPriority(
     return "normal";
   }
 
+  const declaredLength =
+    request.headers.get(
+      "content-length",
+    );
+
+  if (
+    declaredLength !== null
+  ) {
+    const parsed =
+      Number(
+        declaredLength,
+      );
+
+    if (
+      !Number.isFinite(parsed)
+      || parsed < 0
+      || parsed > 1024
+    ) {
+      return "invalid";
+    }
+  }
+
   const contentType =
     request.headers
       .get("content-type")
@@ -528,9 +567,72 @@ async function listNotifications(
       );
     }
 
+    const items =
+      decoded
+        .filter(isObject)
+        .sort(
+          (
+            left,
+            right,
+          ) => {
+            const leftPriority =
+              typeof left.priority
+                === "string"
+                && left.priority
+                  in PRIORITY_RANK
+                ? PRIORITY_RANK[
+                    left.priority
+                      as Priority
+                  ]
+                : 0;
+
+            const rightPriority =
+              typeof right.priority
+                === "string"
+                && right.priority
+                  in PRIORITY_RANK
+                ? PRIORITY_RANK[
+                    right.priority
+                      as Priority
+                  ]
+                : 0;
+
+            if (
+              leftPriority
+              !== rightPriority
+            ) {
+              return (
+                rightPriority
+                - leftPriority
+              );
+            }
+
+            const leftCreated =
+              typeof left.created_at
+                === "string"
+                ? Date.parse(
+                    left.created_at,
+                  )
+                : 0;
+
+            const rightCreated =
+              typeof right.created_at
+                === "string"
+                ? Date.parse(
+                    right.created_at,
+                  )
+                : 0;
+
+            return (
+              rightCreated
+              - leftCreated
+            );
+          },
+        );
+
     return jsonResponse(
       {
-        items: decoded,
+        items,
       },
     );
   } catch {
