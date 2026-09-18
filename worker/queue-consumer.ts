@@ -13,6 +13,11 @@ import {
   type OpportunityMaterializationResult,
 } from "./opportunity-store";
 
+import {
+  captureTriggerSnapshotForOpportunity,
+  ensureOpportunitySnapshotSchedule,
+} from "./opportunity-snapshot";
+
 export const QUEUE_RETRY_DELAY_SECONDS = 30;
 
 export interface QueueMessageLike {
@@ -78,12 +83,18 @@ export type ProcessOpportunity = (
   env: RuntimeEnv,
 ) => Promise<OpportunityMaterializationResult>;
 
+export type PostProcessOpportunity = (
+  opportunityId: string,
+  env: RuntimeEnv,
+) => Promise<void>;
+
 export interface QueueConsumerDependencies {
   readCanonicalEvent: ReadCanonicalEvent;
   beginReceipt: BeginReceipt;
   markSucceeded: MarkSucceeded;
   recordFailure: RecordFailure;
   processOpportunity?: ProcessOpportunity;
+  postProcessOpportunity?: PostProcessOpportunity;
 }
 
 function runtimeHeaders(
@@ -263,6 +274,26 @@ const defaultDependencies:
       recordProcessingFailure,
     processOpportunity:
       materializeOpportunityForEvent,
+    postProcessOpportunity:
+      async (
+        opportunityId,
+        env,
+      ) => {
+        const scheduled =
+          await ensureOpportunitySnapshotSchedule(
+            opportunityId,
+            env,
+          );
+
+        if (!scheduled) {
+          return;
+        }
+
+        await captureTriggerSnapshotForOpportunity(
+          opportunityId,
+          env,
+        );
+      },
   };
 
 function retryMessage(
@@ -350,6 +381,9 @@ export async function handleMainQueueMessage(
     return;
   }
 
+  let materializedOpportunityId:
+    string | null = null;
+
   if (
     dependencies.processOpportunity
   ) {
@@ -359,6 +393,14 @@ export async function handleMainQueueMessage(
           canonical.event.id,
           env,
         );
+
+    if (
+      opportunity.status === "created"
+      || opportunity.status === "replay"
+    ) {
+      materializedOpportunityId =
+        opportunity.opportunity_id;
+    }
 
     let failureCode:
       string | null = null;
@@ -428,6 +470,22 @@ export async function handleMainQueueMessage(
   }
 
   message.ack();
+
+  if (
+    materializedOpportunityId !== null
+    && dependencies.postProcessOpportunity
+  ) {
+    try {
+      await dependencies
+        .postProcessOpportunity(
+          materializedOpportunityId,
+          env,
+        );
+    } catch {
+      // Snapshot evidence is best-effort here.
+      // Core opportunity queue success must remain independent.
+    }
+  }
 }
 
 export async function handleMainQueueBatch(
