@@ -97,7 +97,11 @@ function directionLabel(direction: Direction): string {
   return direction === null ? "—" : direction.toUpperCase();
 }
 
-export function SetupFinder() {
+export function SetupFinder({
+  initialOpportunityId = null,
+}: {
+  initialOpportunityId?: string | null;
+}) {
   const [items, setItems] = useState<OpportunitySummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<OpportunityDetail | null>(null);
@@ -133,7 +137,20 @@ export function SetupFinder() {
         setItems(payload.items);
         setListState("ready");
         setSelectedId((current) => {
-          if (current && payload.items.some((item) => item.id === current)) return current;
+          if (
+            initialOpportunityId
+            && payload.items.some((item) => item.id === initialOpportunityId)
+          ) {
+            return initialOpportunityId;
+          }
+
+          if (
+            current
+            && payload.items.some((item) => item.id === current)
+          ) {
+            return current;
+          }
+
           return payload.items[0]?.id ?? null;
         });
       })
@@ -143,7 +160,7 @@ export function SetupFinder() {
       });
 
     return () => controller.abort();
-  }, [statusFilter, tickerFilter, refreshKey]);
+  }, [statusFilter, tickerFilter, refreshKey, initialOpportunityId]);
 
   useEffect(() => {
     if (!selectedId) {
