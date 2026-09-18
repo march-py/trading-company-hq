@@ -5,6 +5,7 @@ import { AppShell, CardShell, PageScaffold, PanelShell, TableShell, type NavGrou
 import { CommandPalette, InstrumentDrawer } from "./components/overlays";
 import { StatePanel } from "./components/states";
 import { SetupFinder } from "./SetupFinder";
+import { NotificationCenter } from "./NotificationCenter";
 
 type Health = {
   status: "ok";
@@ -25,6 +26,7 @@ const navigation: NavGroup[] = [
     label: "Decision desks",
     items: [
       { id: "setup-finder", label: "Setup Finder", stage: "S05.1", icon: "search", available: true },
+      { id: "notifications", label: "Notifications", stage: "S05.3", icon: "inbox", available: true },
       { id: "research", label: "Research", stage: "S06", icon: "layers" },
       { id: "trading", label: "Trading", stage: "S07–S10", icon: "chart" },
       { id: "portfolio", label: "Portfolio", stage: "S11–S13", icon: "briefcase" },
@@ -85,14 +87,14 @@ function Lobby({
           </div>
         </CardShell>
 
-        <CardShell eyebrow="RELEASE TRACK" title="Trading workspace" detail="S05 / 1 of 3">
-          <div className="progress-track" aria-label="Trading workspace: one of three sub-stages active">
-            <span className="progress-fill" style={{ width: "33.333%" }} />
+        <CardShell eyebrow="RELEASE TRACK" title="Trading workspace" detail="S05 / 3 of 3">
+          <div className="progress-track" aria-label="Trading workspace: three of three sub-stages active">
+            <span className="progress-fill" style={{ width: "100%" }} />
           </div>
           <div className="milestone-row">
-            <span><Icon name="check" size="sm" /> S04 opportunity capture</span>
-            <span><Icon name="circle" size="sm" /> S05.1 Setup Finder</span>
-            <span className="milestone-muted"><Icon name="circle" size="sm" /> S05.2–S05.3</span>
+            <span><Icon name="check" size="sm" /> S05.1 Setup Finder</span>
+            <span><Icon name="check" size="sm" /> S05.2 Setup Camera</span>
+            <span><Icon name="circle" size="sm" /> S05.3 Notifications</span>
           </div>
         </CardShell>
       </section>
@@ -145,6 +147,7 @@ function App() {
   const [failed, setFailed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [setupFinderTargetId, setSetupFinderTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -180,16 +183,33 @@ function App() {
   }, []);
 
   return (
-    <AppShell activeItem={activeItem} navigation={navigation} onNavigate={setActiveItem}>
+    <AppShell
+      activeItem={activeItem}
+      navigation={navigation}
+      onNavigate={(itemId) => {
+        if (itemId === "setup-finder") setSetupFinderTargetId(null);
+        setActiveItem(itemId);
+      }}
+    >
       {activeItem === "setup-finder" ? (
-        <SetupFinder />
+        <SetupFinder initialOpportunityId={setupFinderTargetId} />
+      ) : activeItem === "notifications" ? (
+        <NotificationCenter
+          onOpenSetupFinder={(opportunityId) => {
+            setSetupFinderTargetId(opportunityId ?? null);
+            setActiveItem("setup-finder");
+          }}
+        />
       ) : (
         <Lobby
           health={health}
           failed={failed}
           onOpenPalette={() => setPaletteOpen(true)}
           onOpenDrawer={() => setDrawerOpen(true)}
-          onOpenSetupFinder={() => setActiveItem("setup-finder")}
+          onOpenSetupFinder={() => {
+            setSetupFinderTargetId(null);
+            setActiveItem("setup-finder");
+          }}
         />
       )}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpenDrawer={() => setDrawerOpen(true)} />

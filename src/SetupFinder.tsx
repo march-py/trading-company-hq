@@ -97,7 +97,11 @@ function directionLabel(direction: Direction): string {
   return direction === null ? "—" : direction.toUpperCase();
 }
 
-export function SetupFinder() {
+export function SetupFinder({
+  initialOpportunityId = null,
+}: {
+  initialOpportunityId?: string | null;
+}) {
   const [items, setItems] = useState<OpportunitySummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<OpportunityDetail | null>(null);
@@ -107,6 +111,10 @@ export function SetupFinder() {
   const [tickerInput, setTickerInput] = useState("");
   const [tickerFilter, setTickerFilter] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
+  const [workflowState, setWorkflowState] = useState<"idle" | "running" | "error">("idle");
+  const [workflowMessage, setWorkflowMessage] = useState("");
+  const [alertPriority, setAlertPriority] = useState<"low" | "normal" | "high" | "critical">("normal");
 
   const loadList = useCallback(() => {
     setRefreshKey((value) => value + 1);
@@ -129,7 +137,20 @@ export function SetupFinder() {
         setItems(payload.items);
         setListState("ready");
         setSelectedId((current) => {
-          if (current && payload.items.some((item) => item.id === current)) return current;
+          if (
+            initialOpportunityId
+            && payload.items.some((item) => item.id === initialOpportunityId)
+          ) {
+            return initialOpportunityId;
+          }
+
+          if (
+            current
+            && payload.items.some((item) => item.id === current)
+          ) {
+            return current;
+          }
+
           return payload.items[0]?.id ?? null;
         });
       })
@@ -139,7 +160,7 @@ export function SetupFinder() {
       });
 
     return () => controller.abort();
-  }, [statusFilter, tickerFilter, refreshKey]);
+  }, [statusFilter, tickerFilter, refreshKey, initialOpportunityId]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -167,7 +188,7 @@ export function SetupFinder() {
       });
 
     return () => controller.abort();
-  }, [selectedId]);
+  }, [selectedId, detailRefreshKey]);
 
   const selected = useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
@@ -186,6 +207,61 @@ export function SetupFinder() {
     setTickerFilter("");
   };
 
+  const runWorkflowAction = async (
+    action: "qualify" | "alert" | "seen" | "create-trade-plan",
+  ) => {
+    if (!selectedId) return;
+
+    setWorkflowState("running");
+    setWorkflowMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/opportunities/${selectedId}/${action}`,
+        {
+          method: "POST",
+          headers: action === "alert"
+            ? { "Content-Type": "application/json" }
+            : undefined,
+          body: action === "alert"
+            ? JSON.stringify({ priority: alertPriority })
+            : undefined,
+        },
+      );
+
+      const payload = await response.json() as {
+        result?: string;
+        error?: string;
+        trade_plan_request_id?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "workflow_action_failed");
+      }
+
+      if (action === "qualify") {
+        setWorkflowMessage("Opportunity qualified by explicit human review.");
+      } else if (action === "alert") {
+        setWorkflowMessage("Alert routed to Notification Center.");
+      } else if (action === "seen") {
+        setWorkflowMessage("Opportunity marked seen and notification read.");
+      } else {
+        setWorkflowMessage(
+          payload.trade_plan_request_id
+            ? `Trade-plan handoff created: ${shortId(payload.trade_plan_request_id)}. S07 will own entry, stop, targets, sizing, and execution.`
+            : "Trade-plan handoff already exists.",
+        );
+      }
+
+      setWorkflowState("idle");
+      setRefreshKey((value) => value + 1);
+      setDetailRefreshKey((value) => value + 1);
+    } catch {
+      setWorkflowState("error");
+      setWorkflowMessage("Workflow action failed. No live trade was executed.");
+    }
+  };
+
   return (
     <PageScaffold
       eyebrow="TRADING / SETUP FINDER"
@@ -199,7 +275,7 @@ export function SetupFinder() {
         </button>
       }
     >
-      <PanelShell eyebrow="S05.1 / REVIEW QUEUE" title="Setup Finder" detail="READ ONLY" className="setup-finder-panel">
+      <PanelShell eyebrow="S05.3 / REVIEW WORKFLOW" title="Setup Finder" detail="HUMAN REVIEW" className="setup-finder-panel">
         <div className="setup-filterbar" aria-label="Opportunity filters">
           <label className="setup-field">
             <span>Status</span>
@@ -276,6 +352,87 @@ export function SetupFinder() {
                     <div><span>Venue instrument</span><strong title={selected.venue_instrument_id ?? undefined}>{selected.venue_instrument_id ? shortId(selected.venue_instrument_id) : "Not venue-specific"}</strong></div>
                     <div><span>Setup key</span><strong>{selected.setup_key ?? "—"}</strong></div>
                   </div>
+
+                  <section className="setup-review-block setup-workflow-block">
+                    <div className="setup-section-heading">
+                      <div><p className="micro-label">S05.3 WORKFLOW</p><h3>Opportunity decision path</h3></div>
+                      <span>Manual authority only</span>
+                    </div>
+
+                    <p className="setup-workflow-copy">
+                      S05.3 advances review state and creates durable notifications or a trade-plan handoff. It does not evaluate S06 strategy rules and cannot size or execute a trade.
+                    </p>
+
+                    <div className="setup-workflow-actions">
+                      {selected.status === "detected" && (
+                        <button
+                          className="button"
+                          type="button"
+                          disabled={workflowState === "running"}
+                          onClick={() => void runWorkflowAction("qualify")}
+                        >
+                          <Icon name="check" size="sm" />
+                          Qualify after review
+                        </button>
+                      )}
+
+                      {selected.status === "qualified" && (
+                        <>
+                          <label className="setup-field setup-workflow-priority">
+                            <span>Alert priority</span>
+                            <select
+                              value={alertPriority}
+                              onChange={(event) => setAlertPriority(event.target.value as "low" | "normal" | "high" | "critical")}
+                            >
+                              <option value="low">Low</option>
+                              <option value="normal">Normal</option>
+                              <option value="high">High</option>
+                              <option value="critical">Critical</option>
+                            </select>
+                          </label>
+                          <button
+                            className="button"
+                            type="button"
+                            disabled={workflowState === "running"}
+                            onClick={() => void runWorkflowAction("alert")}
+                          >
+                            <Icon name="inbox" size="sm" />
+                            Route alert
+                          </button>
+                        </>
+                      )}
+
+                      {selected.status === "alerted" && (
+                        <button
+                          className="button"
+                          type="button"
+                          disabled={workflowState === "running"}
+                          onClick={() => void runWorkflowAction("seen")}
+                        >
+                          <Icon name="check" size="sm" />
+                          Mark seen
+                        </button>
+                      )}
+
+                      {selected.status === "seen" && (
+                        <button
+                          className="button"
+                          type="button"
+                          disabled={workflowState === "running"}
+                          onClick={() => void runWorkflowAction("create-trade-plan")}
+                        >
+                          <Icon name="chart" size="sm" />
+                          Create Trade Plan handoff
+                        </button>
+                      )}
+                    </div>
+
+                    {workflowMessage && (
+                      <p className={`setup-workflow-message${workflowState === "error" ? " setup-workflow-message--error" : ""}`}>
+                        {workflowMessage}
+                      </p>
+                    )}
+                  </section>
 
                   <section className="setup-review-block">
                     <div className="setup-section-heading">

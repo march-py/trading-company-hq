@@ -40,6 +40,11 @@ import {
 } from "./opportunity-snapshot-api";
 
 import {
+  handleS05WorkflowApi,
+  isS05WorkflowApiRoute,
+} from "./opportunity-workflow-api";
+
+import {
   processDueOpportunitySnapshots,
   reconcileRecentOpportunitySnapshotSchedules,
 } from "./opportunity-snapshot";
@@ -143,6 +148,17 @@ export default {
       )
     ) {
       return handleOpportunitySnapshotApi(
+        request,
+        env,
+      );
+    }
+
+    if (
+      isS05WorkflowApiRoute(
+        url.pathname,
+      )
+    ) {
+      return handleS05WorkflowApi(
         request,
         env,
       );
