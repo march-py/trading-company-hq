@@ -147,6 +147,7 @@ function App() {
   const [failed, setFailed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [setupFinderTargetId, setSetupFinderTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -182,12 +183,22 @@ function App() {
   }, []);
 
   return (
-    <AppShell activeItem={activeItem} navigation={navigation} onNavigate={setActiveItem}>
+    <AppShell
+      activeItem={activeItem}
+      navigation={navigation}
+      onNavigate={(itemId) => {
+        if (itemId === "setup-finder") setSetupFinderTargetId(null);
+        setActiveItem(itemId);
+      }}
+    >
       {activeItem === "setup-finder" ? (
-        <SetupFinder />
+        <SetupFinder initialOpportunityId={setupFinderTargetId} />
       ) : activeItem === "notifications" ? (
         <NotificationCenter
-          onOpenSetupFinder={() => setActiveItem("setup-finder")}
+          onOpenSetupFinder={(opportunityId) => {
+            setSetupFinderTargetId(opportunityId ?? null);
+            setActiveItem("setup-finder");
+          }}
         />
       ) : (
         <Lobby
@@ -195,7 +206,10 @@ function App() {
           failed={failed}
           onOpenPalette={() => setPaletteOpen(true)}
           onOpenDrawer={() => setDrawerOpen(true)}
-          onOpenSetupFinder={() => setActiveItem("setup-finder")}
+          onOpenSetupFinder={() => {
+            setSetupFinderTargetId(null);
+            setActiveItem("setup-finder");
+          }}
         />
       )}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpenDrawer={() => setDrawerOpen(true)} />
