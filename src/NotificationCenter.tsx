@@ -379,7 +379,8 @@ export function NotificationCenter({
             className="text-button"
             type="button"
             onClick={
-              onOpenSetupFinder
+              () =>
+                onOpenSetupFinder()
             }
           >
             Open Setup Finder
@@ -423,7 +424,8 @@ export function NotificationCenter({
                   className="text-button"
                   type="button"
                   onClick={
-                    onOpenSetupFinder
+                    () =>
+                      onOpenSetupFinder()
                   }
                 >
                   Review opportunities
