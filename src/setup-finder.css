@@ -61,3 +61,54 @@
   .setup-filterbar > .button { width: 100%; justify-content: center; }
   .setup-field, .setup-field--ticker { width: 100%; }
 }
+
+.setup-workflow-block {
+  background: rgb(252 251 248 / 48%);
+}
+
+.setup-workflow-copy {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-tertiary);
+  font-size: var(--type-xs);
+  line-height: 1.55;
+}
+
+.setup-workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.setup-workflow-priority {
+  min-width: 9rem;
+}
+
+.setup-workflow-message {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3);
+  border: var(--border-thin) solid var(--state-success-border);
+  border-radius: var(--radius-md);
+  background: var(--state-success-bg);
+  color: var(--state-success-fg);
+  font-size: var(--type-xs);
+  line-height: 1.45;
+}
+
+.setup-workflow-message--error {
+  border-color: var(--state-error-border);
+  background: var(--state-error-bg);
+  color: var(--state-error-fg);
+}
+
+@media (max-width: 760px) {
+  .setup-workflow-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .setup-workflow-actions .button,
+  .setup-workflow-priority {
+    width: 100%;
+  }
+}
